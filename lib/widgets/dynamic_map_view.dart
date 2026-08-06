@@ -32,15 +32,15 @@ class DynamicMapView extends ConsumerWidget {
         zoomControlsEnabled: false,
       );
     } else {
-      return ml.MaplibreMap(
+      return ml.MapLibreMap(
         initialCameraPosition: ml.CameraPosition(
           target: ml.LatLng(latitude, longitude),
           zoom: 14.0,
         ),
         styleString: 'https://demotiles.maplibre.org/style.json',
         myLocationEnabled: true,
-        myLocationRenderMode: ml.MyProfileLocationRenderMode.NORMAL,
-        onMapCreated: (ml.MaplibreMapController controller) {
+        myLocationRenderMode: ml.MyLocationRenderMode.normal,
+        onMapCreated: (ml.MapLibreMapController controller) {
           for (var marker in googleMarkers) {
             controller.addSymbol(ml.SymbolOptions(
               geometry: ml.LatLng(marker.position.latitude, marker.position.longitude),
