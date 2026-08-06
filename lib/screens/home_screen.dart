@@ -9,6 +9,7 @@ import '../providers/ride_provider.dart';
 import '../utils/geo.dart';
 import '../widgets/dynamic_map_view.dart';
 import 'settings_screen.dart';
+import 'chat_screen.dart';
 
 class CustomerHomeScreen extends ConsumerStatefulWidget {
   const CustomerHomeScreen({super.key});
@@ -32,7 +33,10 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
   void initState() {
     super.initState();
     _determinePosition();
-    ref.read(rideProvider.notifier).fetchActive();
+    Future.microtask(() {
+      ref.read(rideProvider.notifier).fetchActive();
+      ref.read(rideProvider.notifier).fetchCategories();
+    });
   }
 
   @override
@@ -74,7 +78,58 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
     );
   }
 
-  Future<void> _bookRide() async {
+  void _showCategorySelection() {
+    final categories = ref.read(rideProvider).categories;
+    if (categories.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No ride categories available right now.')),
+      );
+      return;
+    }
+
+    final distance = haversineKm(_lat, _lng, _dropoffLat, _dropoffLng);
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Select Ride Type',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              ...categories.map((cat) {
+                final baseFare = double.parse(cat['base_fare'].toString());
+                final perKm = double.parse(cat['per_km_rate'].toString());
+                final estFare = baseFare + (distance * perKm);
+
+                return ListTile(
+                  leading: const Icon(Icons.directions_car, size: 40),
+                  title: Text(cat['name'], style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text('Base: ₦$baseFare | Per KM: ₦$perKm'),
+                  trailing: Text('~ ₦${estFare.toStringAsFixed(0)}', 
+                    style: const TextStyle(fontSize: 18, color: Colors.green, fontWeight: FontWeight.bold)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _bookRide(cat['id']);
+                  },
+                );
+              }).toList(),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _bookRide(int categoryId) async {
     final notifier = ref.read(rideProvider.notifier);
     final distance = haversineKm(_lat, _lng, _dropoffLat, _dropoffLng);
 
@@ -89,6 +144,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
             ? 'Destination'
             : _destinationController.text.trim(),
         distanceKm: distance,
+        categoryId: categoryId,
       );
       if (mounted) {
         _startPolling();
@@ -110,8 +166,112 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
     await ref.read(authProvider.notifier).logout();
   }
 
+  Future<void> _sendSos(int rideId) async {
+    try {
+      await ref.read(rideProvider.notifier).sendSos(rideId, _lat, _lng);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('SOS Alert sent! Help is on the way.'), backgroundColor: Colors.red),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    }
+  }
+
+  void _showRatingDialog(int rideId) {
+    int stars = 5;
+    final commentController = TextEditingController();
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Rate your Driver'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('How was your trip?'),
+              const SizedBox(height: 16),
+              StatefulBuilder(builder: (context, setDialogState) {
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(5, (index) {
+                    return IconButton(
+                      icon: Icon(
+                        index < stars ? Icons.star : Icons.star_border,
+                        color: Colors.amber,
+                        size: 32,
+                      ),
+                      onPressed: () {
+                        setDialogState(() => stars = index + 1);
+                      },
+                    );
+                  }),
+                );
+              }),
+              TextField(
+                controller: commentController,
+                decoration: const InputDecoration(
+                  hintText: 'Leave a comment (optional)',
+                ),
+                maxLines: 2,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                ref.read(rideProvider.notifier).clear();
+              },
+              child: const Text('Skip'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                try {
+                  await ref.read(rideProvider.notifier).rateRide(
+                        rideId,
+                        stars,
+                        commentController.text.trim(),
+                      );
+                  if (mounted) Navigator.pop(ctx);
+                  ref.read(rideProvider.notifier).clear();
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Thanks for your feedback!')),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(e.toString())),
+                    );
+                  }
+                }
+              },
+              child: const Text('Submit'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    ref.listen<RideState>(rideProvider, (previous, next) {
+      final prevStatus = previous?.ride?['status'];
+      final nextStatus = next.ride?['status'];
+      if (prevStatus != 'completed' && nextStatus == 'completed') {
+        final rideId = next.ride!['id'];
+        _showRatingDialog(rideId);
+      }
+    });
+
     final rideState = ref.watch(rideProvider);
     final ride = rideState.ride;
     final status = ride?['status'] as String?;
@@ -147,6 +307,27 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
                   child: Icon(Icons.logout,
                       color: Theme.of(context).colorScheme.onSurface),
                 ),
+                if (isActive) ...[
+                  const SizedBox(height: 8),
+                  FloatingActionButton(
+                    mini: true,
+                    heroTag: 'chat',
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    onPressed: () {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatScreen()));
+                    },
+                    child: Icon(Icons.chat,
+                        color: Theme.of(context).colorScheme.onPrimary),
+                  ),
+                  const SizedBox(height: 8),
+                  FloatingActionButton(
+                    mini: true,
+                    heroTag: 'sos',
+                    backgroundColor: Colors.red,
+                    onPressed: () => _sendSos(ride!['id'] as int),
+                    child: const Icon(Icons.emergency, color: Colors.white),
+                  ),
+                ],
               ],
             ),
           ),
@@ -192,7 +373,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
             right: 16,
             child: ElevatedButton(
               onPressed:
-                  (isActive || _locating || rideState.loading) ? null : _bookRide,
+                  (isActive || _locating || rideState.loading) ? null : _showCategorySelection,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.primary,
                 foregroundColor: Theme.of(context).colorScheme.onPrimary,

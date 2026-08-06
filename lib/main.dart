@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'providers/auth_provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
+import 'screens/splash_screen.dart';
 
 void main() {
   runApp(const ProviderScope(child: PairrideCustomerApp()));
@@ -34,7 +35,7 @@ class PairrideCustomerApp extends StatelessWidget {
         useMaterial3: true,
         fontFamily: 'Inter',
       ),
-      home: const RootGate(),
+      home: const SplashScreen(),
     );
   }
 }
