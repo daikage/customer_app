@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'providers/auth_provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/splash_screen.dart';
+import 'screens/onboarding_screen.dart';
 import 'utils/app_theme.dart';
 
-void main() {
+// Provider to hold the initial onboarding state
+final onboardingStateProvider = StateProvider<bool>((ref) => false);
+
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -15,7 +20,16 @@ void main() {
       statusBarIconBrightness: Brightness.dark,
     ),
   );
-  runApp(const ProviderScope(child: PairrideCustomerApp()));
+
+  final prefs = await SharedPreferences.getInstance();
+  final hasSeenOnboarding = prefs.getBool('has_seen_onboarding') ?? false;
+
+  runApp(ProviderScope(
+    overrides: [
+      onboardingStateProvider.overrideWith((ref) => hasSeenOnboarding),
+    ],
+    child: const PairrideCustomerApp(),
+  ));
 }
 
 class PairrideCustomerApp extends StatelessWidget {
@@ -39,11 +53,8 @@ class PairrideCustomerApp extends StatelessWidget {
         useMaterial3: true,
         fontFamily: 'Inter',
         scaffoldBackgroundColor: AppColors.surfaceLight,
-        cardTheme: CardThemeData(
+        cardTheme: const CardTheme(
           elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
           color: AppColors.cardLight,
         ),
         appBarTheme: const AppBarTheme(
@@ -120,11 +131,8 @@ class PairrideCustomerApp extends StatelessWidget {
         useMaterial3: true,
         fontFamily: 'Inter',
         scaffoldBackgroundColor: AppColors.surfaceDark,
-        cardTheme: CardThemeData(
+        cardTheme: const CardTheme(
           elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
           color: AppColors.cardDark,
         ),
         appBarTheme: const AppBarTheme(
@@ -178,6 +186,10 @@ class RootGate extends ConsumerWidget {
     }
 
     if (!auth.isLoggedIn) {
+      final hasSeen = ref.watch(onboardingStateProvider);
+      if (!hasSeen) {
+        return const OnboardingScreen();
+      }
       return const LoginScreen();
     }
 

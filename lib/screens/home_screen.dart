@@ -4,6 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
+import 'package:glassmorphism/glassmorphism.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_neumorphic_plus/flutter_neumorphic.dart' hide AppTheme;
+
 import '../providers/auth_provider.dart';
 import '../providers/ride_provider.dart';
 import '../utils/app_theme.dart';
@@ -11,6 +15,7 @@ import '../utils/geo.dart';
 import '../widgets/dynamic_map_view.dart';
 import 'settings_screen.dart';
 import 'chat_screen.dart';
+import 'history_screen.dart';
 
 class CustomerHomeScreen extends ConsumerStatefulWidget {
   const CustomerHomeScreen({super.key});
@@ -668,35 +673,67 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
             ),
           ),
 
-          // ── Search bar ──────────────────────────────────────────
+          // ── Search bar (Mock Autocomplete with Neumorphic) ──────
           Positioned(
             top: 56,
             left: 16,
             right: 80,
-            child: Container(
-              decoration: BoxDecoration(
+            child: Neumorphic(
+              style: NeumorphicStyle(
+                depth: -3,
+                intensity: 0.8,
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: AppShadows.medium,
+                boxShape: NeumorphicBoxShape.roundRect(BorderRadius.circular(16)),
               ),
-              child: TextField(
-                controller: _destinationController,
-                enabled: !isActive,
-                decoration: InputDecoration(
-                  hintText: 'Where to?',
-                  hintStyle: TextStyle(
-                    color: Colors.grey.shade400,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  border: InputBorder.none,
-                  prefixIcon: Icon(Icons.search_rounded,
-                      color: stColor, size: 22),
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                ),
+              child: Autocomplete<String>(
+                optionsBuilder: (TextEditingValue textEditingValue) {
+                  if (textEditingValue.text.isEmpty) {
+                    return const Iterable<String>.empty();
+                  }
+                  // Mock data
+                  final mockPlaces = [
+                    'Lekki Phase 1, Lagos',
+                    'Ikeja City Mall',
+                    'Victoria Island, Lagos',
+                    'Abuja International Airport',
+                    'Garki, Abuja',
+                  ];
+                  return mockPlaces.where((place) => place
+                      .toLowerCase()
+                      .contains(textEditingValue.text.toLowerCase()));
+                },
+                onSelected: (String selection) {
+                  _destinationController.text = selection;
+                },
+                fieldViewBuilder: (context, controller, focusNode, onEditingComplete) {
+                  // Keep sync with our own controller
+                  controller.text = _destinationController.text;
+                  controller.addListener(() {
+                    _destinationController.text = controller.text;
+                  });
+                  return TextField(
+                    controller: controller,
+                    focusNode: focusNode,
+                    enabled: !isActive,
+                    decoration: InputDecoration(
+                      hintText: 'Where to?',
+                      hintStyle: TextStyle(
+                        color: Colors.grey.shade400,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      prefixIcon: Icon(Icons.search_rounded,
+                          color: stColor, size: 22),
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                    ),
+                  );
+                },
               ),
             ),
-          ),
+          ).animate().fade().slideY(begin: -0.2, end: 0),
 
           // ── FAB column ────────────────────────────────────────────
           Positioned(
@@ -707,6 +744,16 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
               child: Column(
                 children: [
                   _buildGlassFAB(
+                    heroTag: 'history',
+                    icon: Icons.history_rounded,
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const HistoryScreen()),
+                    ),
+                  ).animate().scale(delay: 200.ms),
+                  const SizedBox(height: 10),
+                  _buildGlassFAB(
                     heroTag: 'settings',
                     icon: Icons.settings_outlined,
                     onPressed: () => Navigator.push(
@@ -714,13 +761,13 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
                       MaterialPageRoute(
                           builder: (_) => const SettingsScreen()),
                     ),
-                  ),
+                  ).animate().scale(delay: 300.ms),
                   const SizedBox(height: 10),
                   _buildGlassFAB(
                     heroTag: 'logout',
                     icon: Icons.logout_rounded,
                     onPressed: _logout,
-                  ),
+                  ).animate().scale(delay: 400.ms),
                   if (isActive) ...[
                     const SizedBox(height: 10),
                     _buildGlassFAB(
@@ -733,7 +780,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
                         MaterialPageRoute(
                             builder: (_) => const ChatScreen()),
                       ),
-                    ),
+                    ).animate().scale(delay: 100.ms),
                     const SizedBox(height: 10),
                     _buildGlassFAB(
                       heroTag: 'sos',
@@ -741,7 +788,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
                       color: AppColors.error,
                       iconColor: Colors.white,
                       onPressed: () => _sendSos(ride!['id'] as int),
-                    ),
+                    ).animate().scale(delay: 200.ms),
                   ],
                 ],
               ),
@@ -829,23 +876,35 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
             bottom: 0,
             left: 0,
             right: 0,
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 36),
-              decoration: BoxDecoration(
-                color: Theme.of(context).scaffoldBackgroundColor,
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(28)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 20,
-                    offset: const Offset(0, -5),
-                  ),
+            child: GlassmorphicContainer(
+              width: MediaQuery.of(context).size.width,
+              height: isActive ? 200 : 350,
+              borderRadius: 28,
+              blur: 20,
+              alignment: Alignment.bottomCenter,
+              border: 1,
+              linearGradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Colors.white.withOpacity(0.9),
+                    Colors.white.withOpacity(0.8),
+                  ],
+                  stops: const [0.1, 1],
+              ),
+              borderGradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.white.withOpacity(0.5),
+                  Colors.white.withOpacity(0.2),
                 ],
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 36),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
                   // Handle bar
                   Container(
                     width: 40,
@@ -929,12 +988,12 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
                                 ],
                               ),
                       ),
-                    ),
                   ),
                 ],
               ),
             ),
-          ),
+            ),
+          ).animate().slideY(begin: 1.0, end: 0, duration: 500.ms, curve: Curves.easeOutCubic),
         ],
       ),
     );

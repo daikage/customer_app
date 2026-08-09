@@ -7,6 +7,7 @@ class RideState {
   final List<Map<String, dynamic>> availableRides;
   final List<Map<String, dynamic>> categories;
   final List<Map<String, dynamic>> messages;
+  final List<Map<String, dynamic>> history; // New history list
   final String selectedServiceType;
   final bool loading;
   final String? error;
@@ -16,6 +17,7 @@ class RideState {
     this.availableRides = const [],
     this.categories = const [],
     this.messages = const [],
+    this.history = const [],
     this.selectedServiceType = 'single',
     this.loading = false,
     this.error,
@@ -26,6 +28,7 @@ class RideState {
     List<Map<String, dynamic>>? availableRides,
     List<Map<String, dynamic>>? categories,
     List<Map<String, dynamic>>? messages,
+    List<Map<String, dynamic>>? history, // Add history parameter
     String? selectedServiceType,
     bool? loading,
     String? error,
@@ -37,6 +40,7 @@ class RideState {
       availableRides: availableRides ?? this.availableRides,
       categories: categories ?? this.categories,
       messages: messages ?? this.messages,
+      history: history ?? this.history, // Pass history to constructor
       selectedServiceType: selectedServiceType ?? this.selectedServiceType,
       loading: loading ?? this.loading,
       error: clearError ? null : (error ?? this.error),
@@ -161,6 +165,19 @@ class RideNotifier extends StateNotifier<RideState> {
       state = state.copyWith(categories: cats);
     } on Exception {
       // Ignore
+    }
+  }
+
+  Future<void> fetchHistory() async {
+    state = state.copyWith(loading: true, clearError: true);
+    try {
+      final response = await ApiService.instance.dio.get('/rides/history');
+      final rides = (response.data['rides']['data'] as List)
+          .map((r) => (r as Map).cast<String, dynamic>())
+          .toList();
+      state = state.copyWith(history: rides, loading: false);
+    } on Exception catch (e) {
+      state = state.copyWith(loading: false, error: ApiService.friendlyError(e));
     }
   }
 
