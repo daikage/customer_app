@@ -6,6 +6,7 @@ import 'package:geolocator/geolocator.dart';
 
 import '../providers/auth_provider.dart';
 import '../providers/ride_provider.dart';
+import '../utils/app_theme.dart';
 import '../utils/geo.dart';
 import '../widgets/dynamic_map_view.dart';
 import 'settings_screen.dart';
@@ -18,31 +19,58 @@ class CustomerHomeScreen extends ConsumerStatefulWidget {
   ConsumerState<CustomerHomeScreen> createState() => _CustomerHomeScreenState();
 }
 
-class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
+class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
+    with SingleTickerProviderStateMixin {
   final _destinationController = TextEditingController();
 
-  double _lat = 6.5244; // Fallback Lagos coords until GPS reports a position
+  // Service-type-specific controllers
+  final _cargoDescController = TextEditingController();
+  final _cargoWeightController = TextEditingController();
+  final _packageDescController = TextEditingController();
+  final _recipientNameController = TextEditingController();
+  final _recipientPhoneController = TextEditingController();
+  final _destStateController = TextEditingController();
+  final _numPassengersController = TextEditingController();
+
+  String _selectedHaulageVehicle = 'van';
+
+  double _lat = 6.5244;
   double _lng = 3.3792;
   bool _locating = true;
   Timer? _pollTimer;
 
-  static const double _dropoffLat = 6.6018; // Ikeja (sample destination)
+  static const double _dropoffLat = 6.6018;
   static const double _dropoffLng = 3.3515;
+
+  late AnimationController _fabAnimController;
 
   @override
   void initState() {
     super.initState();
+    _fabAnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
     _determinePosition();
     Future.microtask(() {
       ref.read(rideProvider.notifier).fetchActive();
-      ref.read(rideProvider.notifier).fetchCategories();
+      ref.read(rideProvider.notifier).fetchCategories(serviceType: 'single');
     });
+    _fabAnimController.forward();
   }
 
   @override
   void dispose() {
     _pollTimer?.cancel();
     _destinationController.dispose();
+    _cargoDescController.dispose();
+    _cargoWeightController.dispose();
+    _packageDescController.dispose();
+    _recipientNameController.dispose();
+    _recipientPhoneController.dispose();
+    _destStateController.dispose();
+    _numPassengersController.dispose();
+    _fabAnimController.dispose();
     super.dispose();
   }
 
@@ -78,50 +106,207 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
     );
   }
 
+  Map<String, dynamic>? _buildServiceMeta(String serviceType) {
+    switch (serviceType) {
+      case 'haulage':
+        return {
+          'cargo_description': _cargoDescController.text.trim(),
+          'cargo_weight_kg': double.tryParse(_cargoWeightController.text) ?? 0,
+          'vehicle_type_required': _selectedHaulageVehicle,
+        };
+      case 'dispatch':
+        return {
+          'package_description': _packageDescController.text.trim(),
+          'recipient_name': _recipientNameController.text.trim(),
+          'recipient_phone': _recipientPhoneController.text.trim(),
+        };
+      case 'interstate':
+        return {
+          'destination_state': _destStateController.text.trim(),
+          'num_passengers':
+              int.tryParse(_numPassengersController.text) ?? 1,
+        };
+      default:
+        return null;
+    }
+  }
+
   void _showCategorySelection() {
-    final categories = ref.read(rideProvider).categories;
+    final rideState = ref.read(rideProvider);
+    final categories = rideState.categories;
+    final serviceType = rideState.selectedServiceType;
+
     if (categories.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No ride categories available right now.')),
+        SnackBar(
+          content: const Text('No categories available for this service type.'),
+          backgroundColor: AppColors.primary,
+          behavior: SnackBarBehavior.floating,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
       );
       return;
     }
 
     final distance = haversineKm(_lat, _lng, _dropoffLat, _dropoffLng);
+    final stColor = serviceTypeColor(serviceType);
 
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (ctx) {
         return Container(
-          padding: const EdgeInsets.symmetric(vertical: 20),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+          decoration: BoxDecoration(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            borderRadius:
+                const BorderRadius.vertical(top: Radius.circular(28)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.15),
+                blurRadius: 30,
+                offset: const Offset(0, -8),
+              ),
+            ],
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
-                'Select Ride Type',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              // Handle bar
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-              const SizedBox(height: 16),
+              // Header
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: stColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child:
+                        Icon(serviceTypeIcon(serviceType), color: stColor, size: 24),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Select ${serviceTypeLabel(serviceType)}',
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        Text(
+                          '${distance.toStringAsFixed(1)} km trip',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey.shade500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
               ...categories.map((cat) {
                 final baseFare = double.parse(cat['base_fare'].toString());
                 final perKm = double.parse(cat['per_km_rate'].toString());
                 final estFare = baseFare + (distance * perKm);
 
-                return ListTile(
-                  leading: const Icon(Icons.directions_car, size: 40),
-                  title: Text(cat['name'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text('Base: ₦$baseFare | Per KM: ₦$perKm'),
-                  trailing: Text('~ ₦${estFare.toStringAsFixed(0)}', 
-                    style: const TextStyle(fontSize: 18, color: Colors.green, fontWeight: FontWeight.bold)),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _bookRide(cat['id']);
-                  },
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(16),
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _bookRide(cat['id'], serviceType);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: Colors.grey.shade200,
+                            width: 1.5,
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 50,
+                              height: 50,
+                              decoration: BoxDecoration(
+                                gradient:
+                                    AppGradients.serviceType(serviceType),
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: Icon(
+                                categoryIcon(cat['name']),
+                                color: Colors.white,
+                                size: 26,
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    cat['name'],
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Base ₦${baseFare.toStringAsFixed(0)} · ₦${perKm.toStringAsFixed(0)}/km',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey.shade500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: stColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                '₦${estFare.toStringAsFixed(0)}',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  color: stColor,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
                 );
-              }).toList(),
+              }),
             ],
           ),
         );
@@ -129,7 +314,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
     );
   }
 
-  Future<void> _bookRide(int categoryId) async {
+  Future<void> _bookRide(int categoryId, String serviceType) async {
     final notifier = ref.read(rideProvider.notifier);
     final distance = haversineKm(_lat, _lng, _dropoffLat, _dropoffLng);
 
@@ -145,18 +330,30 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
             : _destinationController.text.trim(),
         distanceKm: distance,
         categoryId: categoryId,
+        serviceType: serviceType,
+        serviceMeta: _buildServiceMeta(serviceType),
       );
       if (mounted) {
         _startPolling();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Ride requested! Finding a driver...')),
+          SnackBar(
+            content: const Text('Ride requested! Finding a driver...'),
+            backgroundColor: AppColors.success,
+            behavior: SnackBarBehavior.floating,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
         );
       }
     } catch (_) {
       if (mounted) {
         final error = ref.read(rideProvider).error;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error ?? 'Could not request ride.')),
+          SnackBar(
+            content: Text(error ?? 'Could not request ride.'),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       }
     }
@@ -171,12 +368,19 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
       await ref.read(rideProvider.notifier).sendSos(rideId, _lat, _lng);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('SOS Alert sent! Help is on the way.'), backgroundColor: Colors.red),
+          SnackBar(
+            content: const Text('SOS Alert sent! Help is on the way.'),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.toString())));
       }
     }
   }
@@ -190,7 +394,10 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
       barrierDismissible: false,
       builder: (ctx) {
         return AlertDialog(
-          title: const Text('Rate your Driver'),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          title: const Text('Rate your Driver',
+              style: TextStyle(fontWeight: FontWeight.w700)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -202,9 +409,9 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
                   children: List.generate(5, (index) {
                     return IconButton(
                       icon: Icon(
-                        index < stars ? Icons.star : Icons.star_border,
-                        color: Colors.amber,
-                        size: 32,
+                        index < stars ? Icons.star_rounded : Icons.star_border_rounded,
+                        color: AppColors.accent,
+                        size: 36,
                       ),
                       onPressed: () {
                         setDialogState(() => stars = index + 1);
@@ -213,10 +420,14 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
                   }),
                 );
               }),
+              const SizedBox(height: 8),
               TextField(
                 controller: commentController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   hintText: 'Leave a comment (optional)',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                 ),
                 maxLines: 2,
               ),
@@ -228,9 +439,10 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
                 Navigator.pop(ctx);
                 ref.read(rideProvider.notifier).clear();
               },
-              child: const Text('Skip'),
+              child: Text('Skip',
+                  style: TextStyle(color: Colors.grey.shade500)),
             ),
-            ElevatedButton(
+            FilledButton(
               onPressed: () async {
                 try {
                   await ref.read(rideProvider.notifier).rateRide(
@@ -242,7 +454,11 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
                   ref.read(rideProvider.notifier).clear();
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Thanks for your feedback!')),
+                      SnackBar(
+                        content: const Text('Thanks for your feedback!'),
+                        backgroundColor: AppColors.success,
+                        behavior: SnackBarBehavior.floating,
+                      ),
                     );
                   }
                 } catch (e) {
@@ -253,11 +469,157 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
                   }
                 }
               },
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
               child: const Text('Submit'),
             ),
           ],
         );
       },
+    );
+  }
+
+  // ─── Service type specific fields ────────────────────────────────────────
+
+  Widget _buildServiceFields(String serviceType) {
+    switch (serviceType) {
+      case 'haulage':
+        return _buildHaulageFields();
+      case 'dispatch':
+        return _buildDispatchFields();
+      case 'interstate':
+        return _buildInterstateFields();
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
+  Widget _buildHaulageFields() {
+    return Column(
+      children: [
+        const SizedBox(height: 8),
+        _buildGlassInput(
+          controller: _cargoDescController,
+          hint: 'Cargo description',
+          icon: Icons.inventory_2_outlined,
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _buildGlassInput(
+                controller: _cargoWeightController,
+                hint: 'Weight (kg)',
+                icon: Icons.scale_outlined,
+                keyboardType: TextInputType.number,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: AppShadows.soft,
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _selectedHaulageVehicle,
+                    isExpanded: true,
+                    icon: const Icon(Icons.expand_more),
+                    items: const [
+                      DropdownMenuItem(value: 'van', child: Text('Van')),
+                      DropdownMenuItem(value: 'truck', child: Text('Truck')),
+                      DropdownMenuItem(
+                          value: 'flatbed', child: Text('Flatbed')),
+                    ],
+                    onChanged: (v) =>
+                        setState(() => _selectedHaulageVehicle = v ?? 'van'),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDispatchFields() {
+    return Column(
+      children: [
+        const SizedBox(height: 8),
+        _buildGlassInput(
+          controller: _packageDescController,
+          hint: 'Package description',
+          icon: Icons.inventory_outlined,
+        ),
+        const SizedBox(height: 8),
+        _buildGlassInput(
+          controller: _recipientNameController,
+          hint: 'Recipient name',
+          icon: Icons.person_outline,
+        ),
+        const SizedBox(height: 8),
+        _buildGlassInput(
+          controller: _recipientPhoneController,
+          hint: 'Recipient phone',
+          icon: Icons.phone_outlined,
+          keyboardType: TextInputType.phone,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInterstateFields() {
+    return Column(
+      children: [
+        const SizedBox(height: 8),
+        _buildGlassInput(
+          controller: _destStateController,
+          hint: 'Destination state',
+          icon: Icons.location_city_outlined,
+        ),
+        const SizedBox(height: 8),
+        _buildGlassInput(
+          controller: _numPassengersController,
+          hint: 'Number of passengers',
+          icon: Icons.people_outline,
+          keyboardType: TextInputType.number,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGlassInput({
+    required TextEditingController controller,
+    required String hint,
+    required IconData icon,
+    TextInputType? keyboardType,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: AppShadows.soft,
+      ),
+      child: TextField(
+        controller: controller,
+        keyboardType: keyboardType,
+        decoration: InputDecoration(
+          hintText: hint,
+          prefixIcon: Icon(icon, size: 20, color: Colors.grey.shade500),
+          border: InputBorder.none,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        ),
+      ),
     );
   }
 
@@ -277,125 +639,362 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
     final status = ride?['status'] as String?;
     final isActive =
         status != null && !['completed', 'cancelled'].contains(status);
+    final selectedType = rideState.selectedServiceType;
+    final stColor = serviceTypeColor(selectedType);
 
     return Scaffold(
       body: Stack(
         children: [
+          // ── Map ────────────────────────────────────────────────────
           DynamicMapView(latitude: _lat, longitude: _lng),
+
+          // ── Top gradient overlay ──────────────────────────────────
           Positioned(
-            top: 50,
-            right: 16,
-            child: Column(
-              children: [
-                FloatingActionButton(
-                  mini: true,
-                  heroTag: 'settings',
-                  backgroundColor: Theme.of(context).colorScheme.surface,
-                  onPressed: () {
-                    Navigator.push(context,
-                        MaterialPageRoute(builder: (_) => const SettingsScreen()));
-                  },
-                  child: Icon(Icons.settings,
-                      color: Theme.of(context).colorScheme.onSurface),
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              height: 120,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withOpacity(0.3),
+                    Colors.transparent,
+                  ],
                 ),
-                const SizedBox(height: 8),
-                FloatingActionButton(
-                  mini: true,
-                  heroTag: 'logout',
-                  backgroundColor: Theme.of(context).colorScheme.surface,
-                  onPressed: _logout,
-                  child: Icon(Icons.logout,
-                      color: Theme.of(context).colorScheme.onSurface),
-                ),
-                if (isActive) ...[
-                  const SizedBox(height: 8),
-                  FloatingActionButton(
-                    mini: true,
-                    heroTag: 'chat',
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    onPressed: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatScreen()));
-                    },
-                    child: Icon(Icons.chat,
-                        color: Theme.of(context).colorScheme.onPrimary),
-                  ),
-                  const SizedBox(height: 8),
-                  FloatingActionButton(
-                    mini: true,
-                    heroTag: 'sos',
-                    backgroundColor: Colors.red,
-                    onPressed: () => _sendSos(ride!['id'] as int),
-                    child: const Icon(Icons.emergency, color: Colors.white),
-                  ),
-                ],
-              ],
+              ),
             ),
           ),
+
+          // ── Search bar ──────────────────────────────────────────
           Positioned(
-            top: 50,
+            top: 56,
             left: 16,
-            right: 90,
-            child: Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+            right: 80,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: AppShadows.medium,
               ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                child: TextField(
-                  controller: _destinationController,
-                  enabled: !isActive,
-                  decoration: const InputDecoration(
-                    hintText: 'Where to?',
-                    border: InputBorder.none,
-                    icon: Icon(Icons.search),
+              child: TextField(
+                controller: _destinationController,
+                enabled: !isActive,
+                decoration: InputDecoration(
+                  hintText: 'Where to?',
+                  hintStyle: TextStyle(
+                    color: Colors.grey.shade400,
+                    fontWeight: FontWeight.w500,
                   ),
+                  border: InputBorder.none,
+                  prefixIcon: Icon(Icons.search_rounded,
+                      color: stColor, size: 22),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 ),
               ),
             ),
           ),
+
+          // ── FAB column ────────────────────────────────────────────
+          Positioned(
+            top: 56,
+            right: 16,
+            child: FadeTransition(
+              opacity: _fabAnimController,
+              child: Column(
+                children: [
+                  _buildGlassFAB(
+                    heroTag: 'settings',
+                    icon: Icons.settings_outlined,
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const SettingsScreen()),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _buildGlassFAB(
+                    heroTag: 'logout',
+                    icon: Icons.logout_rounded,
+                    onPressed: _logout,
+                  ),
+                  if (isActive) ...[
+                    const SizedBox(height: 10),
+                    _buildGlassFAB(
+                      heroTag: 'chat',
+                      icon: Icons.chat_bubble_outline_rounded,
+                      color: AppColors.primary,
+                      iconColor: Colors.white,
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const ChatScreen()),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    _buildGlassFAB(
+                      heroTag: 'sos',
+                      icon: Icons.emergency_rounded,
+                      color: AppColors.error,
+                      iconColor: Colors.white,
+                      onPressed: () => _sendSos(ride!['id'] as int),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+
+          // ── Active ride card ──────────────────────────────────────
           if (ride != null)
             Positioned(
-              top: 110,
+              top: 112,
               left: 16,
               right: 16,
-              child: Card(
-                child: ListTile(
-                  leading: const Icon(Icons.local_taxi, color: Colors.green),
-                  title: Text(isActive ? 'Your ride is $status' : 'Ride $status'),
-                  subtitle: Text('Estimated fare: ₦${ride['estimated_fare']}'),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: AppShadows.medium,
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        gradient: AppGradients.serviceType(
+                            ride['service_type'] ?? 'single'),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        serviceTypeIcon(ride['service_type'] ?? 'single'),
+                        color: Colors.white,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                isActive
+                                    ? 'Ride ${status!.toUpperCase()}'
+                                    : 'Ride $status',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 15,
+                                ),
+                              ),
+                              if (isActive) ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.success,
+                                    shape: BoxShape.circle,
+                                    boxShadow:
+                                        AppShadows.glow(AppColors.success),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '₦${ride['estimated_fare']}',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey.shade500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
+
+          // ── Bottom panel ──────────────────────────────────────────
           Positioned(
-            bottom: 30,
-            left: 16,
-            right: 16,
-            child: ElevatedButton(
-              onPressed:
-                  (isActive || _locating || rideState.loading) ? null : _showCategorySelection,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.primary,
-                foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                padding: const EdgeInsets.all(16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 36),
+              decoration: BoxDecoration(
+                color: Theme.of(context).scaffoldBackgroundColor,
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(28)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 20,
+                    offset: const Offset(0, -5),
+                  ),
+                ],
               ),
-              child: rideState.loading
-                  ? const SizedBox(
-                      height: 22,
-                      width: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Text(
-                      ride != null ? 'Ride $status' : 'Book Ride',
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Handle bar
+                  Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
                     ),
+                  ),
+
+                  // ── Service type pills ─────────────────────────────
+                  if (!isActive)
+                    SizedBox(
+                      height: 50,
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        children: [
+                          _buildServicePill('single', selectedType),
+                          _buildServicePill('interstate', selectedType),
+                          _buildServicePill('haulage', selectedType),
+                          _buildServicePill('dispatch', selectedType),
+                        ],
+                      ),
+                    ),
+
+                  // ── Service-specific fields ─────────────────────────
+                  if (!isActive) _buildServiceFields(selectedType),
+
+                  const SizedBox(height: 16),
+
+                  // ── Book button ──────────────────────────────────────
+                  SizedBox(
+                    width: double.infinity,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: AppGradients.serviceType(selectedType),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: AppShadows.glow(stColor),
+                      ),
+                      child: ElevatedButton(
+                        onPressed: (isActive || _locating || rideState.loading)
+                            ? null
+                            : _showCategorySelection,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          disabledBackgroundColor: Colors.transparent,
+                          foregroundColor: Colors.white,
+                          disabledForegroundColor:
+                              Colors.white.withOpacity(0.6),
+                          elevation: 0,
+                          padding: const EdgeInsets.all(18),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        child: rideState.loading
+                            ? const SizedBox(
+                                height: 22,
+                                width: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(serviceTypeIcon(selectedType),
+                                      size: 22),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    ride != null
+                                        ? 'Ride $status'
+                                        : 'Book ${serviceTypeLabel(selectedType)}',
+                                    style: const TextStyle(
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildServicePill(String type, String selectedType) {
+    final isSelected = type == selectedType;
+    final color = serviceTypeColor(type);
+
+    return GestureDetector(
+      onTap: () {
+        ref.read(rideProvider.notifier).setServiceType(type);
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeInOut,
+        margin: const EdgeInsets.only(right: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+        decoration: BoxDecoration(
+          gradient: isSelected ? AppGradients.serviceType(type) : null,
+          color: isSelected ? null : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: isSelected ? AppShadows.glow(color) : null,
+        ),
+        child: Row(
+          children: [
+            Icon(
+              serviceTypeIcon(type),
+              size: 18,
+              color: isSelected ? Colors.white : Colors.grey.shade600,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              serviceTypeLabel(type),
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+                color: isSelected ? Colors.white : Colors.grey.shade600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGlassFAB({
+    required String heroTag,
+    required IconData icon,
+    required VoidCallback onPressed,
+    Color? color,
+    Color? iconColor,
+  }) {
+    return FloatingActionButton(
+      mini: true,
+      heroTag: heroTag,
+      elevation: 4,
+      backgroundColor: color ?? Colors.white,
+      onPressed: onPressed,
+      child: Icon(icon, color: iconColor ?? Colors.grey.shade700, size: 20),
     );
   }
 }

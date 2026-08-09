@@ -7,6 +7,7 @@ class RideState {
   final List<Map<String, dynamic>> availableRides;
   final List<Map<String, dynamic>> categories;
   final List<Map<String, dynamic>> messages;
+  final String selectedServiceType;
   final bool loading;
   final String? error;
 
@@ -15,6 +16,7 @@ class RideState {
     this.availableRides = const [],
     this.categories = const [],
     this.messages = const [],
+    this.selectedServiceType = 'single',
     this.loading = false,
     this.error,
   });
@@ -24,15 +26,18 @@ class RideState {
     List<Map<String, dynamic>>? availableRides,
     List<Map<String, dynamic>>? categories,
     List<Map<String, dynamic>>? messages,
+    String? selectedServiceType,
     bool? loading,
     String? error,
     bool clearError = false,
+    bool clearRide = false,
   }) {
     return RideState(
-      ride: ride ?? this.ride,
+      ride: clearRide ? null : (ride ?? this.ride),
       availableRides: availableRides ?? this.availableRides,
       categories: categories ?? this.categories,
       messages: messages ?? this.messages,
+      selectedServiceType: selectedServiceType ?? this.selectedServiceType,
       loading: loading ?? this.loading,
       error: clearError ? null : (error ?? this.error),
     );
@@ -41,6 +46,11 @@ class RideState {
 
 class RideNotifier extends StateNotifier<RideState> {
   RideNotifier() : super(const RideState());
+
+  void setServiceType(String type) {
+    state = state.copyWith(selectedServiceType: type, categories: const []);
+    fetchCategories(serviceType: type);
+  }
 
   Future<void> requestRide({
     required double pickupLat,
@@ -51,6 +61,8 @@ class RideNotifier extends StateNotifier<RideState> {
     required String dropoffAddress,
     required double distanceKm,
     int? categoryId,
+    String serviceType = 'single',
+    Map<String, dynamic>? serviceMeta,
   }) async {
     state = state.copyWith(loading: true, clearError: true);
     try {
@@ -62,7 +74,9 @@ class RideNotifier extends StateNotifier<RideState> {
         'dropoff_lng': dropoffLng,
         'dropoff_address': dropoffAddress,
         'distance_km': distanceKm,
+        'service_type': serviceType,
         if (categoryId != null) 'ride_category_id': categoryId,
+        if (serviceMeta != null) 'service_meta': serviceMeta,
       });
       final ride = (response.data['ride'] as Map).cast<String, dynamic>();
       state = state.copyWith(ride: ride, loading: false);
@@ -110,19 +124,22 @@ class RideNotifier extends StateNotifier<RideState> {
       final response = await ApiService.instance.dio.get('/rides/active');
       final raw = response.data['ride'];
       if (raw == null) {
-        state = const RideState();
+        state = state.copyWith(clearRide: true);
         return;
       }
-      state = RideState(ride: (raw as Map).cast<String, dynamic>());
+      state = state.copyWith(ride: (raw as Map).cast<String, dynamic>());
     } on Exception {
       // Keep the current state if the request fails.
     }
   }
 
-  Future<void> fetchAvailable() async {
+  Future<void> fetchAvailable({String? serviceType}) async {
     if (state.loading) return;
     try {
-      final response = await ApiService.instance.dio.get('/rides/available');
+      final params = <String, dynamic>{};
+      if (serviceType != null) params['service_type'] = serviceType;
+      final response = await ApiService.instance.dio.get('/rides/available',
+          queryParameters: params.isNotEmpty ? params : null);
       final rides = (response.data['rides'] as List)
           .map((r) => (r as Map).cast<String, dynamic>())
           .toList();
@@ -132,9 +149,12 @@ class RideNotifier extends StateNotifier<RideState> {
     }
   }
 
-  Future<void> fetchCategories() async {
+  Future<void> fetchCategories({String? serviceType}) async {
     try {
-      final response = await ApiService.instance.dio.get('/ride-categories');
+      final params = <String, dynamic>{};
+      if (serviceType != null) params['service_type'] = serviceType;
+      final response = await ApiService.instance.dio.get('/ride-categories',
+          queryParameters: params.isNotEmpty ? params : null);
       final cats = (response.data['categories'] as List)
           .map((c) => (c as Map).cast<String, dynamic>())
           .toList();
