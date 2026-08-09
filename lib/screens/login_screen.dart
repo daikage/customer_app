@@ -68,13 +68,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    final media = MediaQuery.of(context);
+    final screenHeight = media.size.height + media.viewInsets.bottom;
 
     return Scaffold(
-      body: Stack(
-        children: [
+      body: SingleChildScrollView(
+        child: Stack(
+          children: [
           // ── Gradient header ──────────────────────────────────────
           Container(
-            height: MediaQuery.of(context).size.height * 0.40,
+            height: screenHeight * 0.40,
             decoration: const BoxDecoration(
               gradient: AppGradients.splash,
               borderRadius: BorderRadius.only(
@@ -132,13 +136,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
           ),
 
           // ── Form card ────────────────────────────────────────────
-          Positioned.fill(
-            top: MediaQuery.of(context).size.height * 0.32,
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: FadeTransition(
-                opacity: _fadeAnim,
-                child: Container(
+          Padding(
+            padding: EdgeInsets.only(
+              top: screenHeight * 0.32,
+              left: 24,
+              right: 24,
+              bottom: 24,
+            ),
+            child: FadeTransition(
+              opacity: _fadeAnim,
+              child: Container(
                   padding: const EdgeInsets.all(28),
                   decoration: BoxDecoration(
                     color: isDark ? AppColors.cardDark : Colors.white,
@@ -284,11 +291,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                       ],
                     ),
                   ),
-                ),
               ),
             ),
           ),
         ],
+      ),
       ),
     );
   }
