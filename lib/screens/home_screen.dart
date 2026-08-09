@@ -6,7 +6,6 @@ import 'package:geolocator/geolocator.dart';
 
 import 'package:glassmorphism/glassmorphism.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:flutter_neumorphic_plus/flutter_neumorphic.dart' hide AppTheme;
 
 import '../providers/auth_provider.dart';
 import '../providers/ride_provider.dart';
@@ -678,12 +677,17 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
             top: 56,
             left: 16,
             right: 80,
-            child: Neumorphic(
-              style: NeumorphicStyle(
-                depth: -3,
-                intensity: 0.8,
+            child: Container(
+              decoration: BoxDecoration(
                 color: Colors.white,
-                boxShape: NeumorphicBoxShape.roundRect(BorderRadius.circular(16)),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
               child: Autocomplete<String>(
                 optionsBuilder: (TextEditingValue textEditingValue) {
@@ -988,6 +992,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
                                 ],
                               ),
                       ),
+                    ),
                   ),
                 ],
               ),
