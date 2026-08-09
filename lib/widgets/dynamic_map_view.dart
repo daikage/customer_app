@@ -37,15 +37,17 @@ class DynamicMapView extends ConsumerWidget {
           target: ml.LatLng(latitude, longitude),
           zoom: 14.0,
         ),
-        styleString: 'https://demotiles.maplibre.org/style.json',
+        styleString: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
         myLocationEnabled: true,
         myLocationRenderMode: ml.MyLocationRenderMode.normal,
         onMapCreated: (ml.MapLibreMapController controller) {
           for (var marker in googleMarkers) {
-            controller.addSymbol(ml.SymbolOptions(
+            controller.addCircle(ml.CircleOptions(
               geometry: ml.LatLng(marker.position.latitude, marker.position.longitude),
-              iconImage: 'marker-15',
-              iconSize: 2.0,
+              circleRadius: 8.0,
+              circleColor: '#FF0000', // Red circle for markers
+              circleStrokeWidth: 2.0,
+              circleStrokeColor: '#FFFFFF',
             ));
           }
         },

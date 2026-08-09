@@ -54,6 +54,7 @@ class ApiService {
       final data = error.response?.data;
       if (data is Map) {
         if (data['message'] != null) return data['message'].toString();
+        if (data['error'] != null) return data['error'].toString();
         final errors = data['errors'];
         if (errors is Map && errors.isNotEmpty) {
           final first = errors.values.first;
