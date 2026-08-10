@@ -48,6 +48,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
   double? _dropoffLat;
   double? _dropoffLng;
   List<List<double>>? _currentRoute;
+  String? _driverEta;
 
   late AnimationController _fabAnimController;
 
@@ -486,8 +487,51 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
             ),
           ],
         );
+        );
       },
     );
+  }
+
+  Future<void> _fetchDriverEtaIfNeeded(Map<String, dynamic> ride) async {
+    final status = ride['status'] as String;
+    if (!['accepted', 'arrived', 'started'].contains(status)) {
+      if (_driverEta != null && mounted) {
+        setState(() => _driverEta = null);
+      }
+      return;
+    }
+
+    final driverLatStr = ride['driver']?['last_lat']?.toString();
+    final driverLngStr = ride['driver']?['last_lng']?.toString();
+    final dropLatStr = ride['dropoff_lat']?.toString();
+    final dropLngStr = ride['dropoff_lng']?.toString();
+    final pickLatStr = ride['pickup_lat']?.toString();
+    final pickLngStr = ride['pickup_lng']?.toString();
+
+    if (driverLatStr != null && driverLngStr != null) {
+      final driverLat = double.tryParse(driverLatStr);
+      final driverLng = double.tryParse(driverLngStr);
+      final dropLat = double.tryParse(dropLatStr ?? '');
+      final dropLng = double.tryParse(dropLngStr ?? '');
+      final pickLat = double.tryParse(pickLatStr ?? '');
+      final pickLng = double.tryParse(pickLngStr ?? '');
+
+      if (driverLat != null && driverLng != null) {
+        // If driver is accepted, ETA to pickup. If started, ETA to dropoff.
+        final destLat = (status == 'started') ? dropLat : pickLat;
+        final destLng = (status == 'started') ? dropLng : pickLng;
+
+        if (destLat != null && destLng != null) {
+          final info = await RouteService.getRouteInfo(driverLat, driverLng, destLat, destLng);
+          if (info != null && mounted) {
+            final mins = (info.durationSeconds / 60).ceil();
+            setState(() {
+              _driverEta = '$mins min${mins > 1 ? 's' : ''}';
+            });
+          }
+        }
+      }
+    }
   }
 
   // ─── Service type specific fields ────────────────────────────────────────
@@ -638,6 +682,20 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
       if (prevStatus != 'completed' && nextStatus == 'completed') {
         final rideId = next.ride!['id'];
         _showRatingDialog(rideId);
+      }
+      
+      // Update ETA if driver location or status changes
+      if (next.ride != null) {
+        final prevLat = previous?.ride?['driver']?['last_lat'];
+        final prevLng = previous?.ride?['driver']?['last_lng'];
+        final nextLat = next.ride!['driver']?['last_lat'];
+        final nextLng = next.ride!['driver']?['last_lng'];
+        
+        if (prevStatus != nextStatus || prevLat != nextLat || prevLng != nextLng) {
+          _fetchDriverEtaIfNeeded(next.ride!);
+        }
+      } else if (_driverEta != null) {
+        if (mounted) setState(() => _driverEta = null);
       }
     });
 

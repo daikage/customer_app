@@ -127,6 +127,29 @@ class AuthNotifier extends StateNotifier<AuthState> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_userKey, jsonEncode(user));
   }
+
+  Future<void> forgotPassword(String email) async {
+    try {
+      await ApiService.instance.dio.post('/forgot-password', data: {
+        'email': email,
+      });
+    } on Exception catch (e) {
+      throw Exception(ApiService.friendlyError(e));
+    }
+  }
+
+  Future<void> resetPassword(String email, String otp, String password) async {
+    try {
+      await ApiService.instance.dio.post('/reset-password', data: {
+        'email': email,
+        'otp': otp,
+        'password': password,
+        'password_confirmation': password,
+      });
+    } on Exception catch (e) {
+      throw Exception(ApiService.friendlyError(e));
+    }
+  }
 }
 
 final authProvider =
