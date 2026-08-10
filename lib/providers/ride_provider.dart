@@ -7,7 +7,8 @@ class RideState {
   final List<Map<String, dynamic>> availableRides;
   final List<Map<String, dynamic>> categories;
   final List<Map<String, dynamic>> messages;
-  final List<Map<String, dynamic>> history; // New history list
+  final List<Map<String, dynamic>> history;
+  final Map<String, dynamic>? estimate;
   final String selectedServiceType;
   final bool loading;
   final String? error;
@@ -18,6 +19,7 @@ class RideState {
     this.categories = const [],
     this.messages = const [],
     this.history = const [],
+    this.estimate,
     this.selectedServiceType = 'single',
     this.loading = false,
     this.error,
@@ -28,19 +30,22 @@ class RideState {
     List<Map<String, dynamic>>? availableRides,
     List<Map<String, dynamic>>? categories,
     List<Map<String, dynamic>>? messages,
-    List<Map<String, dynamic>>? history, // Add history parameter
+    List<Map<String, dynamic>>? history,
+    Map<String, dynamic>? estimate,
     String? selectedServiceType,
     bool? loading,
     String? error,
     bool clearError = false,
     bool clearRide = false,
+    bool clearEstimate = false,
   }) {
     return RideState(
       ride: clearRide ? null : (ride ?? this.ride),
       availableRides: availableRides ?? this.availableRides,
       categories: categories ?? this.categories,
       messages: messages ?? this.messages,
-      history: history ?? this.history, // Pass history to constructor
+      history: history ?? this.history,
+      estimate: clearEstimate ? null : (estimate ?? this.estimate),
       selectedServiceType: selectedServiceType ?? this.selectedServiceType,
       loading: loading ?? this.loading,
       error: clearError ? null : (error ?? this.error),
@@ -87,6 +92,35 @@ class RideNotifier extends StateNotifier<RideState> {
     } on Exception catch (e) {
       state = state.copyWith(loading: false, error: ApiService.friendlyError(e));
       rethrow;
+    }
+  }
+
+  Future<void> cancelRide(int rideId) async {
+    state = state.copyWith(loading: true, clearError: true);
+    try {
+      await ApiService.instance.dio.post('/rides/$rideId/cancel');
+      state = state.copyWith(loading: false, clearRide: true);
+    } on Exception catch (e) {
+      state = state.copyWith(loading: false, error: ApiService.friendlyError(e));
+      rethrow;
+    }
+  }
+
+  Future<void> estimateFare({
+    required double distanceKm,
+    String serviceType = 'single',
+    int? categoryId,
+  }) async {
+    try {
+      final response = await ApiService.instance.dio.post('/rides/estimate', data: {
+        'distance_km': distanceKm,
+        'service_type': serviceType,
+        if (categoryId != null) 'ride_category_id': categoryId,
+      });
+      final data = (response.data as Map).cast<String, dynamic>();
+      state = state.copyWith(estimate: data);
+    } on Exception catch (e) {
+      state = state.copyWith(error: ApiService.friendlyError(e));
     }
   }
 
@@ -241,3 +275,4 @@ class RideNotifier extends StateNotifier<RideState> {
 
 final rideProvider =
     StateNotifierProvider<RideNotifier, RideState>((ref) => RideNotifier());
+

@@ -1,8 +1,11 @@
+import 'dart:convert' as dart_convert;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'providers/auth_provider.dart';
+import 'providers/ride_provider.dart';
+import 'services/reverb_service.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/splash_screen.dart';
@@ -172,12 +175,60 @@ class PairrideCustomerApp extends StatelessWidget {
 
 /// Shows a splash while restoring the session, then either the login screen
 /// or the customer home screen depending on whether the user is authenticated.
-class RootGate extends ConsumerWidget {
+class RootGate extends ConsumerStatefulWidget {
   const RootGate({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<RootGate> createState() => _RootGateState();
+}
+
+class _RootGateState extends ConsumerState<RootGate> {
+  @override
+  Widget build(BuildContext context) {
     final auth = ref.watch(authProvider);
+
+    // Listen to Auth state to manage WebSocket connection
+    ref.listen<AuthState>(authProvider, (previous, current) {
+      if (current.isLoggedIn && !(previous?.isLoggedIn ?? false)) {
+        ref.read(reverbProvider).connect();
+      } else if (!current.isLoggedIn && (previous?.isLoggedIn ?? false)) {
+        ref.read(reverbProvider).disconnect();
+      }
+    });
+
+    // Listen to Reverb messages
+    ref.listen<Map<String, dynamic>?>(reverbMessageProvider, (previous, current) {
+      if (current == null) return;
+      
+      final event = current['event'] as String?;
+      final dataStr = current['data'] as String?;
+      if (event == null || dataStr == null) return;
+      
+      // Attempt to parse JSON data payload
+      Map<String, dynamic> payload = {};
+      try {
+        if (dataStr.startsWith('{')) {
+          payload = (current['data'] is String) 
+            ? Map<String, dynamic>.from(dart_convert.jsonDecode(current['data']))
+            : current['data'];
+        }
+      } catch (_) {}
+
+      if (event.contains('RideStatusUpdated')) {
+        // Refresh ride details
+        ref.read(rideProvider.notifier).fetchActive();
+      } else if (event.contains('DriverLocationUpdated')) {
+        // We could extract lat/lng and update UI directly here
+        // or just re-fetch the ride if needed
+        ref.read(rideProvider.notifier).fetchActive();
+      } else if (event.contains('MessageSent')) {
+        // Refresh chat messages
+        final rideState = ref.read(rideProvider);
+        if (rideState.ride != null) {
+          ref.read(rideProvider.notifier).fetchMessages(rideState.ride!['id'] as int);
+        }
+      }
+    });
 
     if (auth.restoring) {
       return const Scaffold(

@@ -15,6 +15,8 @@ import '../widgets/dynamic_map_view.dart';
 import 'settings_screen.dart';
 import 'chat_screen.dart';
 import 'history_screen.dart';
+import 'address_search_screen.dart';
+import '../services/route_service.dart';
 
 class CustomerHomeScreen extends ConsumerStatefulWidget {
   const CustomerHomeScreen({super.key});
@@ -43,8 +45,9 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
   bool _locating = true;
   Timer? _pollTimer;
 
-  static const double _dropoffLat = 6.6018;
-  static const double _dropoffLng = 3.3515;
+  double? _dropoffLat;
+  double? _dropoffLng;
+  List<List<double>>? _currentRoute;
 
   late AnimationController _fabAnimController;
 
@@ -650,7 +653,11 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
       body: Stack(
         children: [
           // ── Map ────────────────────────────────────────────────────
-          DynamicMapView(latitude: _lat, longitude: _lng),
+          DynamicMapView(
+            latitude: _lat, 
+            longitude: _lng,
+            routeCoordinates: _currentRoute,
+          ),
 
           // ── Top gradient overlay ──────────────────────────────────
           Positioned(
@@ -672,7 +679,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
             ),
           ),
 
-          // ── Search bar (Mock Autocomplete with Neumorphic) ──────
+          // ── Search bar ────────────────────────────────────────────
           Positioned(
             top: 56,
             left: 16,
@@ -689,36 +696,34 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
                   ),
                 ],
               ),
-              child: Autocomplete<String>(
-                optionsBuilder: (TextEditingValue textEditingValue) {
-                  if (textEditingValue.text.isEmpty) {
-                    return const Iterable<String>.empty();
+              child: GestureDetector(
+                onTap: isActive ? null : () async {
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const AddressSearchScreen()),
+                  );
+                  if (result != null && result is Map<String, dynamic>) {
+                    final lat = result['lat'] as double;
+                    final lng = result['lng'] as double;
+                    setState(() {
+                      _destinationController.text = result['address'] as String;
+                      _dropoffLat = lat;
+                      _dropoffLng = lng;
+                      _currentRoute = null; // Clear existing route while fetching
+                    });
+                    
+                    // Fetch route using OSRM
+                    if (_lat != 0.0 && _lng != 0.0) {
+                      final route = await RouteService.getRouteCoordinates(_lat, _lng, lat, lng);
+                      if (mounted) {
+                        setState(() => _currentRoute = route);
+                      }
+                    }
                   }
-                  // Mock data
-                  final mockPlaces = [
-                    'Lekki Phase 1, Lagos',
-                    'Ikeja City Mall',
-                    'Victoria Island, Lagos',
-                    'Abuja International Airport',
-                    'Garki, Abuja',
-                  ];
-                  return mockPlaces.where((place) => place
-                      .toLowerCase()
-                      .contains(textEditingValue.text.toLowerCase()));
                 },
-                onSelected: (String selection) {
-                  _destinationController.text = selection;
-                },
-                fieldViewBuilder: (context, controller, focusNode, onEditingComplete) {
-                  // Keep sync with our own controller
-                  controller.text = _destinationController.text;
-                  controller.addListener(() {
-                    _destinationController.text = controller.text;
-                  });
-                  return TextField(
-                    controller: controller,
-                    focusNode: focusNode,
-                    enabled: !isActive,
+                child: AbsorbPointer(
+                  child: TextField(
+                    controller: _destinationController,
                     decoration: InputDecoration(
                       hintText: 'Where to?',
                       hintStyle: TextStyle(
@@ -733,8 +738,9 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
                       contentPadding:
                           const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                     ),
-                  );
-                },
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                  ),
+                ),
               ),
             ),
           ).animate().fade().slideY(begin: -0.2, end: 0),

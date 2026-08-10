@@ -8,13 +8,15 @@ class DynamicMapView extends ConsumerWidget {
   final double latitude;
   final double longitude;
   final Set<gm.Marker> googleMarkers;
+  final List<List<double>>? routeCoordinates;
 
   const DynamicMapView({
-    Key? key,
+    super.key,
     required this.latitude,
     required this.longitude,
     this.googleMarkers = const {},
-  }) : super(key: key);
+    this.routeCoordinates,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -27,6 +29,18 @@ class DynamicMapView extends ConsumerWidget {
           zoom: 14.0,
         ),
         markers: googleMarkers,
+        polylines: routeCoordinates != null && routeCoordinates!.isNotEmpty
+            ? {
+                gm.Polyline(
+                  polylineId: const gm.PolylineId('route'),
+                  points: routeCoordinates!
+                      .map((c) => gm.LatLng(c[0], c[1]))
+                      .toList(),
+                  color: const Color(0xFF0D7377),
+                  width: 5,
+                )
+              }
+            : {},
         myLocationEnabled: true,
         myLocationButtonEnabled: false,
         zoomControlsEnabled: false,
@@ -48,6 +62,17 @@ class DynamicMapView extends ConsumerWidget {
               circleColor: '#FF0000', // Red circle for markers
               circleStrokeWidth: 2.0,
               circleStrokeColor: '#FFFFFF',
+            ));
+          }
+
+          if (routeCoordinates != null && routeCoordinates!.isNotEmpty) {
+            controller.addLine(ml.LineOptions(
+              geometry: routeCoordinates!
+                  .map((c) => ml.LatLng(c[0], c[1]))
+                  .toList(),
+              lineColor: '#0D7377',
+              lineWidth: 5.0,
+              lineOpacity: 0.8,
             ));
           }
         },
