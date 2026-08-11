@@ -6,8 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:customer_app/screens/login_screen.dart';
 
 void main() {
-  testWidgets('Login screen renders the app title and sign-in button',
-      (WidgetTester tester) async {
+  testWidgets('Login screen validates empty fields', (WidgetTester tester) async {
     SharedPreferences.setMockInitialValues({});
 
     await tester.pumpWidget(
@@ -15,10 +14,14 @@ void main() {
         child: MaterialApp(home: LoginScreen()),
       ),
     );
-    await tester.pump();
+    await tester.pumpAndSettle();
 
-    expect(find.text('PairRide'), findsOneWidget);
-    expect(find.text('Sign In'), findsWidgets);
+    // Tap on Sign In button
+    final signInButton = find.widgetWithText(FilledButton, 'Sign In');
+    await tester.tap(signInButton);
+    await tester.pumpAndSettle();
+
+    // Check for validation errors
+    expect(find.text('Email or phone is required'), findsOneWidget);
   });
 }
-
