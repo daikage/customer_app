@@ -16,6 +16,7 @@ import 'settings_screen.dart';
 import 'chat_screen.dart';
 import 'history_screen.dart';
 import 'address_search_screen.dart';
+import 'wallet_screen.dart';
 import '../services/route_service.dart';
 
 class CustomerHomeScreen extends ConsumerStatefulWidget {
@@ -820,6 +821,16 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
                           builder: (_) => const HistoryScreen()),
                     ),
                   ).animate().scale(delay: 200.ms),
+                  const SizedBox(height: 10),
+                  _buildGlassFAB(
+                    heroTag: 'wallet',
+                    icon: Icons.account_balance_wallet_outlined,
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const WalletScreen()),
+                    ),
+                  ).animate().scale(delay: 250.ms),
                   const SizedBox(height: 10),
                   _buildGlassFAB(
                     heroTag: 'settings',
