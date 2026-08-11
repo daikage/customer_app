@@ -76,7 +76,7 @@ class ReverbService {
         _connected = true;
         // Notify listeners (RealtimeBindings) so channel subscriptions can be
         // (re)established now that the socket id is available for auth.
-        _eventController.add(const ReverbEvent(event: event, channel: null, data: {}));
+        _eventController.add(ReverbEvent(event: event, channel: null, data: {}));
         return;
       }
 
