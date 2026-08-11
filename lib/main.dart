@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'providers/auth_provider.dart';
 import 'providers/ride_provider.dart';
+import 'services/realtime_bindings.dart';
 import 'services/reverb_service.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
@@ -168,7 +169,7 @@ class PairrideCustomerApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const SplashScreen(),
+      home: const RealtimeBindings(child: SplashScreen()),
     );
   }
 }

@@ -270,6 +270,16 @@ class RideNotifier extends StateNotifier<RideState> {
     }
   }
 
+  /// Merge a real-time ride payload (e.g. from a broadcast event) into the
+  /// currently tracked ride without discarding nested relations such as the
+  /// driver's live location.
+  void updateRideLocally(Map<String, dynamic> updatedRide) {
+    final current = state.ride;
+    if (current != null && current['id'] == updatedRide['id']) {
+      state = state.copyWith(ride: updatedRide);
+    }
+  }
+
   void clear() => state = const RideState();
 }
 

@@ -73,6 +73,10 @@ class ReverbService {
       if (event == 'pusher:connection_established') {
         final connectionData = jsonDecode(data['data'] as String) as Map<String, dynamic>;
         _socketId = connectionData['socket_id'] as String?;
+        _connected = true;
+        // Notify listeners (RealtimeBindings) so channel subscriptions can be
+        // (re)established now that the socket id is available for auth.
+        _eventController.add(const ReverbEvent(event: event, channel: null, data: {}));
         return;
       }
 
@@ -122,7 +126,7 @@ class ReverbService {
 
     try {
       final response = await ApiService.instance.dio.post(
-        '/api/broadcasting/auth',
+        '/broadcasting/auth',
         data: {
           'socket_id': _socketId,
           'channel_name': 'private-$channel',
@@ -148,7 +152,7 @@ class ReverbService {
 
     try {
       final response = await ApiService.instance.dio.post(
-        '/api/broadcasting/auth',
+        '/broadcasting/auth',
         data: {
           'socket_id': _socketId,
           'channel_name': 'presence-$channel',

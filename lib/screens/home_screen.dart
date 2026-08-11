@@ -115,6 +115,11 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
     );
   }
 
+  void _stopPolling() {
+    _pollTimer?.cancel();
+    _pollTimer = null;
+  }
+
   Map<String, dynamic>? _buildServiceMeta(String serviceType) {
     switch (serviceType) {
       case 'haulage':
@@ -696,6 +701,17 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
         }
       } else if (_driverEta != null) {
         if (mounted) setState(() => _driverEta = null);
+      }
+
+      // Poll while a ride is live, stop once it ends or is cleared. This keeps
+      // the customer UI in sync even when the socket is unavailable.
+      final hasLiveRide = next.ride != null &&
+          nextStatus != 'completed' &&
+          nextStatus != 'cancelled';
+      if (hasLiveRide) {
+        _startPolling();
+      } else {
+        _stopPolling();
       }
     });
 
