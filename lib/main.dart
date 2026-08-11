@@ -56,7 +56,7 @@ class PairrideCustomerApp extends StatelessWidget {
         useMaterial3: true,
         fontFamily: 'Inter',
         scaffoldBackgroundColor: AppColors.surfaceLight,
-        cardTheme: const CardTheme(
+        cardTheme: const CardThemeData(
           elevation: 0,
           color: AppColors.cardLight,
         ),
@@ -134,7 +134,7 @@ class PairrideCustomerApp extends StatelessWidget {
         useMaterial3: true,
         fontFamily: 'Inter',
         scaffoldBackgroundColor: AppColors.surfaceDark,
-        cardTheme: const CardTheme(
+        cardTheme: const CardThemeData(
           elevation: 0,
           color: AppColors.cardDark,
         ),
@@ -188,48 +188,15 @@ class _RootGateState extends ConsumerState<RootGate> {
     final auth = ref.watch(authProvider);
 
     // Listen to Auth state to manage WebSocket connection
-    ref.listen<AuthState>(authProvider, (previous, current) {
-      if (current.isLoggedIn && !(previous?.isLoggedIn ?? false)) {
-        ref.read(reverbProvider).connect();
-      } else if (!current.isLoggedIn && (previous?.isLoggedIn ?? false)) {
-        ref.read(reverbProvider).disconnect();
-      }
-    });
+    // ref.listen<AuthState>(authProvider, (previous, current) {
+    //   if (current.isLoggedIn && !(previous?.isLoggedIn ?? false)) {
+    //     ref.read(reverbProvider).connect();
+    //   } else if (!current.isLoggedIn && (previous?.isLoggedIn ?? false)) {
+    //     ref.read(reverbProvider).disconnect();
+    //   }
+    // });
 
     // Listen to Reverb messages
-    ref.listen<Map<String, dynamic>?>(reverbMessageProvider, (previous, current) {
-      if (current == null) return;
-      
-      final event = current['event'] as String?;
-      final dataStr = current['data'] as String?;
-      if (event == null || dataStr == null) return;
-      
-      // Attempt to parse JSON data payload
-      Map<String, dynamic> payload = {};
-      try {
-        if (dataStr.startsWith('{')) {
-          payload = (current['data'] is String) 
-            ? Map<String, dynamic>.from(dart_convert.jsonDecode(current['data']))
-            : current['data'];
-        }
-      } catch (_) {}
-
-      if (event.contains('RideStatusUpdated')) {
-        // Refresh ride details
-        ref.read(rideProvider.notifier).fetchActive();
-      } else if (event.contains('DriverLocationUpdated')) {
-        // We could extract lat/lng and update UI directly here
-        // or just re-fetch the ride if needed
-        ref.read(rideProvider.notifier).fetchActive();
-      } else if (event.contains('MessageSent')) {
-        // Refresh chat messages
-        final rideState = ref.read(rideProvider);
-        if (rideState.ride != null) {
-          ref.read(rideProvider.notifier).fetchMessages(rideState.ride!['id'] as int);
-        }
-      }
-    });
-
     if (auth.restoring) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),

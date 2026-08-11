@@ -158,7 +158,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
       return;
     }
 
-    final distance = haversineKm(_lat, _lng, _dropoffLat, _dropoffLng);
+    final distance = haversineKm(_lat, _lng, _dropoffLat ?? _lat, _dropoffLng ?? _lng);
     final stColor = serviceTypeColor(serviceType);
 
     showModalBottomSheet(
@@ -325,15 +325,15 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
 
   Future<void> _bookRide(int categoryId, String serviceType) async {
     final notifier = ref.read(rideProvider.notifier);
-    final distance = haversineKm(_lat, _lng, _dropoffLat, _dropoffLng);
+    final distance = haversineKm(_lat, _lng, _dropoffLat ?? _lat, _dropoffLng ?? _lng);
 
     try {
       await notifier.requestRide(
         pickupLat: _lat,
         pickupLng: _lng,
         pickupAddress: 'Current location',
-        dropoffLat: _dropoffLat,
-        dropoffLng: _dropoffLng,
+        dropoffLat: _dropoffLat ?? _lat,
+        dropoffLng: _dropoffLng ?? _lng,
         dropoffAddress: _destinationController.text.trim().isEmpty
             ? 'Destination'
             : _destinationController.text.trim(),
@@ -487,7 +487,6 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
               child: const Text('Submit'),
             ),
           ],
-        );
         );
       },
     );

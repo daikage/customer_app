@@ -39,8 +39,8 @@ dependencies:
   google_maps_flutter: ^2.5.3
   geolocator: ^11.1.0
   dio: ^5.11.0
-  pusher_channels_flutter: ^2.2.1
-  maplibre_gl: ^0.20.0
+  pusher_channels_flutter: ^2.6.0
+  maplibre_gl: 0.22.0
   shared_preferences: ^2.2.3
   flutter_animate: ^4.5.2
   glassmorphism: ^3.0.0
