@@ -71,12 +71,9 @@ class _DynamicMapViewState extends ConsumerState<DynamicMapView> {
 
   String _mapLibreSignature() {
     final pins = widget.pins.map((p) => p.signature).join('|');
-    final route = (widget.routeCoordinates ?? const [])
-        .map((c) => '${c[0]},${c[1]}')
-        .join('|');
+    final route = (widget.routeCoordinates ?? const []).map((c) => '${c[0]},${c[1]}').join('|');
     final segs = widget.routeSegments
-        .map((s) =>
-            '${s.color.toARGB32()}:${s.points.map((c) => '${c[0]},${c[1]}').join('|')}')
+        .map((s) => '${s.color.toARGB32()}:${s.points.map((c) => '${c[0]},${c[1]}').join('|')}')
         .join(';');
     return '$pins|$route|$segs';
   }
@@ -118,9 +115,7 @@ class _DynamicMapViewState extends ConsumerState<DynamicMapView> {
         }
       } else if (widget.routeCoordinates != null && widget.routeCoordinates!.isNotEmpty) {
         await controller.addLine(ml.LineOptions(
-          geometry: widget.routeCoordinates!
-              .map((c) => ml.LatLng(c[0], c[1]))
-              .toList(),
+          geometry: widget.routeCoordinates!.map((c) => ml.LatLng(c[0], c[1])).toList(),
           lineColor: '#0D7377',
           lineWidth: 5.0,
           lineOpacity: 0.8,
@@ -147,19 +142,15 @@ class _DynamicMapViewState extends ConsumerState<DynamicMapView> {
         final segment = widget.routeSegments[i];
         polylines.add(gm.Polyline(
           polylineId: gm.PolylineId('route_$i'),
-          points:
-              segment.points.map((c) => gm.LatLng(c[0], c[1])).toList(),
+          points: segment.points.map((c) => gm.LatLng(c[0], c[1])).toList(),
           color: segment.color,
           width: 6,
         ));
       }
-    } else if (widget.routeCoordinates != null &&
-        widget.routeCoordinates!.isNotEmpty) {
+    } else if (widget.routeCoordinates != null && widget.routeCoordinates!.isNotEmpty) {
       polylines.add(gm.Polyline(
         polylineId: const gm.PolylineId('route'),
-        points: widget.routeCoordinates!
-            .map((c) => gm.LatLng(c[0], c[1]))
-            .toList(),
+        points: widget.routeCoordinates!.map((c) => gm.LatLng(c[0], c[1])).toList(),
         color: const Color(0xFF0D7377),
         width: 5,
       ));

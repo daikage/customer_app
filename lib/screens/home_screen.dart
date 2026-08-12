@@ -49,7 +49,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
 
   double? _dropoffLat;
   double? _dropoffLng;
-    List<List<double>>? _currentRoute;
+  List<List<double>>? _currentRoute;
   List<List<double>>? _driverRoute;
   String? _driverEta;
 
@@ -176,8 +176,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
       case 'interstate':
         return {
           'destination_state': _destStateController.text.trim(),
-          'num_passengers':
-              int.tryParse(_numPassengersController.text) ?? 1,
+          'num_passengers': int.tryParse(_numPassengersController.text) ?? 1,
         };
       default:
         return null;
@@ -195,8 +194,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
           content: const Text('No categories available for this service type.'),
           backgroundColor: AppColors.primary,
           behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
       return;
@@ -214,8 +212,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
           decoration: BoxDecoration(
             color: Theme.of(context).scaffoldBackgroundColor,
-            borderRadius:
-                const BorderRadius.vertical(top: Radius.circular(28)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.15),
@@ -246,8 +243,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
                       color: stColor.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child:
-                        Icon(serviceTypeIcon(serviceType), color: stColor, size: 24),
+                    child: Icon(serviceTypeIcon(serviceType), color: stColor, size: 24),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -304,8 +300,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
                               width: 50,
                               height: 50,
                               decoration: BoxDecoration(
-                                gradient:
-                                    AppGradients.serviceType(serviceType),
+                                gradient: AppGradients.serviceType(serviceType),
                                 borderRadius: BorderRadius.circular(14),
                               ),
                               child: Icon(
@@ -338,8 +333,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
                               ),
                             ),
                             Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 14, vertical: 8),
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                               decoration: BoxDecoration(
                                 color: stColor.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(12),
@@ -393,8 +387,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
             content: const Text('Ride requested! Finding a driver...'),
             backgroundColor: AppColors.success,
             behavior: SnackBarBehavior.floating,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
         );
       }
@@ -425,15 +418,13 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
             content: const Text('SOS Alert sent! Help is on the way.'),
             backgroundColor: AppColors.error,
             behavior: SnackBarBehavior.floating,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.toString())));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
       }
     }
   }
@@ -447,10 +438,8 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
       barrierDismissible: false,
       builder: (ctx) {
         return AlertDialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          title: const Text('Rate your Driver',
-              style: TextStyle(fontWeight: FontWeight.w700)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          title: const Text('Rate your Driver', style: TextStyle(fontWeight: FontWeight.w700)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -492,8 +481,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
                 Navigator.pop(ctx);
                 ref.read(rideProvider.notifier).clear();
               },
-              child: Text('Skip',
-                  style: TextStyle(color: Colors.grey.shade500)),
+              child: Text('Skip', style: TextStyle(color: Colors.grey.shade500)),
             ),
             FilledButton(
               onPressed: () async {
@@ -536,7 +524,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
     );
   }
 
-    Future<void> _fetchDriverEtaIfNeeded(Map<String, dynamic> ride) async {
+  Future<void> _fetchDriverEtaIfNeeded(Map<String, dynamic> ride) async {
     final status = ride['status'] as String;
     if (!['accepted', 'arrived', 'started'].contains(status)) {
       if (mounted) {
@@ -568,7 +556,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
         final destLat = (status == 'started') ? dropLat : pickLat;
         final destLng = (status == 'started') ? dropLng : pickLng;
 
-                if (destLat != null && destLng != null) {
+        if (destLat != null && destLng != null) {
           final info = await RouteService.getRouteInfo(driverLat, driverLng, destLat, destLng);
           if (info != null && mounted) {
             final mins = (info.durationSeconds / 60).ceil();
@@ -620,8 +608,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
             const SizedBox(width: 8),
             Expanded(
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(14),
@@ -635,11 +622,9 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
                     items: const [
                       DropdownMenuItem(value: 'van', child: Text('Van')),
                       DropdownMenuItem(value: 'truck', child: Text('Truck')),
-                      DropdownMenuItem(
-                          value: 'flatbed', child: Text('Flatbed')),
+                      DropdownMenuItem(value: 'flatbed', child: Text('Flatbed')),
                     ],
-                    onChanged: (v) =>
-                        setState(() => _selectedHaulageVehicle = v ?? 'van'),
+                    onChanged: (v) => setState(() => _selectedHaulageVehicle = v ?? 'van'),
                   ),
                 ),
               ),
@@ -715,8 +700,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
           hintText: hint,
           prefixIcon: Icon(icon, size: 20, color: Colors.grey.shade500),
           border: InputBorder.none,
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         ),
       ),
     );
@@ -731,18 +715,18 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
         final rideId = next.ride!['id'];
         _showRatingDialog(rideId);
       }
-      
+
       // Update ETA if driver location or status changes
       if (next.ride != null) {
         final prevLat = previous?.ride?['driver']?['last_lat'];
         final prevLng = previous?.ride?['driver']?['last_lng'];
         final nextLat = next.ride!['driver']?['last_lat'];
         final nextLng = next.ride!['driver']?['last_lng'];
-        
+
         if (prevStatus != nextStatus || prevLat != nextLat || prevLng != nextLng) {
           _fetchDriverEtaIfNeeded(next.ride!);
         }
-            } else {
+      } else {
         if (mounted) {
           setState(() {
             _driverEta = null;
@@ -754,9 +738,8 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
 
       // Poll while a ride is live, stop once it ends or is cleared. This keeps
       // the customer UI in sync even when the socket is unavailable.
-      final hasLiveRide = next.ride != null &&
-          nextStatus != 'completed' &&
-          nextStatus != 'cancelled';
+      final hasLiveRide =
+          next.ride != null && nextStatus != 'completed' && nextStatus != 'cancelled';
       if (hasLiveRide) {
         _startPolling();
       } else {
@@ -767,9 +750,8 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
     final rideState = ref.watch(rideProvider);
     final ride = rideState.ride;
     final status = ride?['status'] as String?;
-    final isActive =
-        status != null && !['completed', 'cancelled'].contains(status);
-        final selectedType = rideState.selectedServiceType;
+    final isActive = status != null && !['completed', 'cancelled'].contains(status);
+    final selectedType = rideState.selectedServiceType;
     final stColor = serviceTypeColor(selectedType);
 
     /// Live speed (km/h) of the driver, computed from the stream of GPS fixes
@@ -809,7 +791,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
       body: Stack(
         children: [
           // ── Map ────────────────────────────────────────────────────
-                      DynamicMapView(
+          DynamicMapView(
             latitude: driverPos?[0] ?? _lat,
             longitude: driverPos?[1] ?? _lng,
             routeCoordinates: _currentRoute,
@@ -880,30 +862,33 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
                 ],
               ),
               child: GestureDetector(
-                onTap: isActive ? null : () async {
-                  final result = await Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const AddressSearchScreen()),
-                  );
-                  if (result != null && result is Map<String, dynamic>) {
-                    final lat = result['lat'] as double;
-                    final lng = result['lng'] as double;
-                    setState(() {
-                      _destinationController.text = result['address'] as String;
-                      _dropoffLat = lat;
-                      _dropoffLng = lng;
-                      _currentRoute = null; // Clear existing route while fetching
-                    });
-                    
-                    // Fetch route using OSRM
-                    if (_lat != 0.0 && _lng != 0.0) {
-                      final route = await RouteService.getRouteCoordinates(_lat, _lng, lat, lng);
-                      if (mounted) {
-                        setState(() => _currentRoute = route);
-                      }
-                    }
-                  }
-                },
+                onTap: isActive
+                    ? null
+                    : () async {
+                        final result = await Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const AddressSearchScreen()),
+                        );
+                        if (result != null && result is Map<String, dynamic>) {
+                          final lat = result['lat'] as double;
+                          final lng = result['lng'] as double;
+                          setState(() {
+                            _destinationController.text = result['address'] as String;
+                            _dropoffLat = lat;
+                            _dropoffLng = lng;
+                            _currentRoute = null; // Clear existing route while fetching
+                          });
+
+                          // Fetch route using OSRM
+                          if (_lat != 0.0 && _lng != 0.0) {
+                            final route =
+                                await RouteService.getRouteCoordinates(_lat, _lng, lat, lng);
+                            if (mounted) {
+                              setState(() => _currentRoute = route);
+                            }
+                          }
+                        }
+                      },
                 child: AbsorbPointer(
                   child: TextField(
                     controller: _destinationController,
@@ -916,10 +901,8 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
                       border: InputBorder.none,
                       enabledBorder: InputBorder.none,
                       focusedBorder: InputBorder.none,
-                      prefixIcon: Icon(Icons.search_rounded,
-                          color: stColor, size: 22),
-                      contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                      prefixIcon: Icon(Icons.search_rounded, color: stColor, size: 22),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                     ),
                     style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
                   ),
@@ -941,8 +924,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
                     icon: Icons.history_rounded,
                     onPressed: () => Navigator.push(
                       context,
-                      MaterialPageRoute(
-                          builder: (_) => const HistoryScreen()),
+                      MaterialPageRoute(builder: (_) => const HistoryScreen()),
                     ),
                   ).animate().scale(delay: 200.ms),
                   const SizedBox(height: 10),
@@ -951,8 +933,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
                     icon: Icons.account_balance_wallet_outlined,
                     onPressed: () => Navigator.push(
                       context,
-                      MaterialPageRoute(
-                          builder: (_) => const WalletScreen()),
+                      MaterialPageRoute(builder: (_) => const WalletScreen()),
                     ),
                   ).animate().scale(delay: 250.ms),
                   const SizedBox(height: 10),
@@ -961,8 +942,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
                     icon: Icons.settings_outlined,
                     onPressed: () => Navigator.push(
                       context,
-                      MaterialPageRoute(
-                          builder: (_) => const SettingsScreen()),
+                      MaterialPageRoute(builder: (_) => const SettingsScreen()),
                     ),
                   ).animate().scale(delay: 300.ms),
                   const SizedBox(height: 10),
@@ -980,8 +960,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
                       iconColor: Colors.white,
                       onPressed: () => Navigator.push(
                         context,
-                        MaterialPageRoute(
-                            builder: (_) => const ChatScreen()),
+                        MaterialPageRoute(builder: (_) => const ChatScreen()),
                       ),
                     ).animate().scale(delay: 100.ms),
                     const SizedBox(height: 10),
@@ -1017,8 +996,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
                       width: 44,
                       height: 44,
                       decoration: BoxDecoration(
-                        gradient: AppGradients.serviceType(
-                            ride['service_type'] ?? 'single'),
+                        gradient: AppGradients.serviceType(ride['service_type'] ?? 'single'),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Icon(
@@ -1035,9 +1013,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
                           Row(
                             children: [
                               Text(
-                                isActive
-                                    ? 'Ride ${status!.toUpperCase()}'
-                                    : 'Ride $status',
+                                isActive ? 'Ride ${status!.toUpperCase()}' : 'Ride $status',
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w600,
                                   fontSize: 15,
@@ -1051,8 +1027,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
                                   decoration: BoxDecoration(
                                     color: AppColors.success,
                                     shape: BoxShape.circle,
-                                    boxShadow:
-                                        AppShadows.glow(AppColors.success),
+                                    boxShadow: AppShadows.glow(AppColors.success),
                                   ),
                                 ),
                               ],
@@ -1087,13 +1062,13 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
               alignment: Alignment.bottomCenter,
               border: 1,
               linearGradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Colors.white.withOpacity(0.9),
-                    Colors.white.withOpacity(0.8),
-                  ],
-                  stops: const [0.1, 1],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.white.withOpacity(0.9),
+                  Colors.white.withOpacity(0.8),
+                ],
+                stops: const [0.1, 1],
               ),
               borderGradient: LinearGradient(
                 begin: Alignment.topLeft,
@@ -1108,94 +1083,92 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                  // Handle bar
-                  Container(
-                    width: 40,
-                    height: 4,
-                    margin: const EdgeInsets.only(bottom: 16),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-
-                  // ── Service type pills ─────────────────────────────
-                  if (!isActive)
-                    SizedBox(
-                      height: 50,
-                      child: ListView(
-                        scrollDirection: Axis.horizontal,
-                        children: [
-                          _buildServicePill('single', selectedType),
-                          _buildServicePill('interstate', selectedType),
-                          _buildServicePill('haulage', selectedType),
-                          _buildServicePill('dispatch', selectedType),
-                        ],
-                      ),
-                    ),
-
-                  // ── Service-specific fields ─────────────────────────
-                  if (!isActive) _buildServiceFields(selectedType),
-
-                  const SizedBox(height: 16),
-
-                  // ── Book button ──────────────────────────────────────
-                  SizedBox(
-                    width: double.infinity,
-                    child: Container(
+                    // Handle bar
+                    Container(
+                      width: 40,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 16),
                       decoration: BoxDecoration(
-                        gradient: AppGradients.serviceType(selectedType),
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: AppShadows.glow(stColor),
-                      ),
-                      child: ElevatedButton(
-                        onPressed: (isActive || _locating || rideState.loading)
-                            ? null
-                            : _showCategorySelection,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.transparent,
-                          disabledBackgroundColor: Colors.transparent,
-                          foregroundColor: Colors.white,
-                          disabledForegroundColor:
-                              Colors.white.withOpacity(0.6),
-                          elevation: 0,
-                          padding: const EdgeInsets.all(18),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                        child: rideState.loading
-                            ? const SizedBox(
-                                height: 22,
-                                width: 22,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(serviceTypeIcon(selectedType),
-                                      size: 22),
-                                  const SizedBox(width: 10),
-                                  Text(
-                                    ride != null
-                                        ? 'Ride $status'
-                                        : 'Book ${serviceTypeLabel(selectedType)}',
-                                    style: const TextStyle(
-                                      fontSize: 17,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2),
                       ),
                     ),
-                  ),
-                ],
+
+                    // ── Service type pills ─────────────────────────────
+                    if (!isActive)
+                      SizedBox(
+                        height: 50,
+                        child: ListView(
+                          scrollDirection: Axis.horizontal,
+                          children: [
+                            _buildServicePill('single', selectedType),
+                            _buildServicePill('interstate', selectedType),
+                            _buildServicePill('haulage', selectedType),
+                            _buildServicePill('dispatch', selectedType),
+                          ],
+                        ),
+                      ),
+
+                    // ── Service-specific fields ─────────────────────────
+                    if (!isActive) _buildServiceFields(selectedType),
+
+                    const SizedBox(height: 16),
+
+                    // ── Book button ──────────────────────────────────────
+                    SizedBox(
+                      width: double.infinity,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: AppGradients.serviceType(selectedType),
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: AppShadows.glow(stColor),
+                        ),
+                        child: ElevatedButton(
+                          onPressed: (isActive || _locating || rideState.loading)
+                              ? null
+                              : _showCategorySelection,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            disabledBackgroundColor: Colors.transparent,
+                            foregroundColor: Colors.white,
+                            disabledForegroundColor: Colors.white.withOpacity(0.6),
+                            elevation: 0,
+                            padding: const EdgeInsets.all(18),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          child: rideState.loading
+                              ? const SizedBox(
+                                  height: 22,
+                                  width: 22,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(serviceTypeIcon(selectedType), size: 22),
+                                    const SizedBox(width: 10),
+                                    Text(
+                                      ride != null
+                                          ? 'Ride $status'
+                                          : 'Book ${serviceTypeLabel(selectedType)}',
+                                      style: const TextStyle(
+                                        fontSize: 17,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
             ),
           ).animate().slideY(begin: 1.0, end: 0, duration: 500.ms, curve: Curves.easeOutCubic),
         ],

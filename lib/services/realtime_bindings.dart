@@ -108,9 +108,7 @@ class _RealtimeBindingsState extends ConsumerState<RealtimeBindings> {
           final newStatus = payloadRide['status'];
           final currentRide = ref.read(rideProvider).ride;
 
-          if (currentRide != null &&
-              payloadId == currentRide['id'] &&
-              newStatus is String) {
+          if (currentRide != null && payloadId == currentRide['id'] && newStatus is String) {
             rideNotifier.updateRideLocally({
               ...currentRide,
               ...payloadRide,
@@ -139,7 +137,7 @@ class _RealtimeBindingsState extends ConsumerState<RealtimeBindings> {
     }
   }
 
-         void _applyDriverLocation(Map<String, dynamic> data) {
+  void _applyDriverLocation(Map<String, dynamic> data) {
     final currentRide = ref.read(rideProvider).ride;
     if (currentRide == null) return;
 
@@ -150,8 +148,7 @@ class _RealtimeBindingsState extends ConsumerState<RealtimeBindings> {
     final dLat = (lat as num).toDouble();
     final dLng = (lng as num).toDouble();
 
-    final driver = (currentRide['driver'] as Map?)?.cast<String, dynamic>() ??
-        <String, dynamic>{};
+    final driver = (currentRide['driver'] as Map?)?.cast<String, dynamic>() ?? <String, dynamic>{};
     driver['last_lat'] = dLat;
     driver['last_lng'] = dLng;
     final heading = data['heading'];

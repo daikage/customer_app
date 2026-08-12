@@ -41,8 +41,7 @@ class SpeedTrackerState {
 
   const SpeedTrackerState({this.speedKmh = 0, this.heading});
 
-  SpeedTrackerState copyWith({double? speedKmh, double? heading}) =>
-      SpeedTrackerState(
+  SpeedTrackerState copyWith({double? speedKmh, double? heading}) => SpeedTrackerState(
         speedKmh: speedKmh ?? this.speedKmh,
         heading: heading ?? this.heading,
       );
@@ -105,7 +104,6 @@ class SpeedTrackerNotifier extends StateNotifier<SpeedTrackerState> {
   static double _radToDeg(double rad) => rad * 180.0 / pi;
 }
 
-final mapSpeedProvider =
-    StateNotifierProvider<SpeedTrackerNotifier, SpeedTrackerState>(
+final mapSpeedProvider = StateNotifierProvider<SpeedTrackerNotifier, SpeedTrackerState>(
   (ref) => SpeedTrackerNotifier(),
 );
