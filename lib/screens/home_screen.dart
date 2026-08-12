@@ -18,6 +18,7 @@ import 'history_screen.dart';
 import 'address_search_screen.dart';
 import 'wallet_screen.dart';
 import '../services/route_service.dart';
+import '../providers/map_provider.dart';
 
 class CustomerHomeScreen extends ConsumerStatefulWidget {
   const CustomerHomeScreen({super.key});
@@ -48,7 +49,8 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
 
   double? _dropoffLat;
   double? _dropoffLng;
-  List<List<double>>? _currentRoute;
+    List<List<double>>? _currentRoute;
+  List<List<double>>? _driverRoute;
   String? _driverEta;
 
   late AnimationController _fabAnimController;
@@ -534,11 +536,14 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
     );
   }
 
-  Future<void> _fetchDriverEtaIfNeeded(Map<String, dynamic> ride) async {
+    Future<void> _fetchDriverEtaIfNeeded(Map<String, dynamic> ride) async {
     final status = ride['status'] as String;
     if (!['accepted', 'arrived', 'started'].contains(status)) {
-      if (_driverEta != null && mounted) {
-        setState(() => _driverEta = null);
+      if (mounted) {
+        setState(() {
+          _driverEta = null;
+          _driverRoute = null;
+        });
       }
       return;
     }
@@ -563,11 +568,12 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
         final destLat = (status == 'started') ? dropLat : pickLat;
         final destLng = (status == 'started') ? dropLng : pickLng;
 
-        if (destLat != null && destLng != null) {
+                if (destLat != null && destLng != null) {
           final info = await RouteService.getRouteInfo(driverLat, driverLng, destLat, destLng);
           if (info != null && mounted) {
             final mins = (info.durationSeconds / 60).ceil();
             setState(() {
+              _driverRoute = info.coordinates;
               _driverEta = '$mins min${mins > 1 ? 's' : ''}';
             });
           }
@@ -736,8 +742,14 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
         if (prevStatus != nextStatus || prevLat != nextLat || prevLng != nextLng) {
           _fetchDriverEtaIfNeeded(next.ride!);
         }
-      } else if (_driverEta != null) {
-        if (mounted) setState(() => _driverEta = null);
+            } else {
+        if (mounted) {
+          setState(() {
+            _driverEta = null;
+            _driverRoute = null;
+          });
+          ref.read(mapSpeedProvider.notifier).reset();
+        }
       }
 
       // Poll while a ride is live, stop once it ends or is cleared. This keeps
@@ -757,17 +769,51 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
     final status = ride?['status'] as String?;
     final isActive =
         status != null && !['completed', 'cancelled'].contains(status);
-    final selectedType = rideState.selectedServiceType;
+        final selectedType = rideState.selectedServiceType;
     final stColor = serviceTypeColor(selectedType);
+
+    /// Live speed (km/h) of the driver, computed from the stream of GPS fixes
+    /// the customer receives. Drives the route-segment coloring below.
+    final driverSpeed = ref.watch(mapSpeedProvider).speedKmh;
+
+    // While a ride is active, follow the driver's position along its route so
+    // the vehicle marker "sticks" to the path and the line reflects the live
+    // speed (green -> amber -> red).
+    List<double>? driverPos;
+    List<RouteSegment> routeSegments = const [];
+    if (ride != null) {
+      final d = ride['driver'];
+      if (d is Map) {
+        final dLat = double.tryParse(d['last_lat']?.toString() ?? '');
+        final dLng = double.tryParse(d['last_lng']?.toString() ?? '');
+        if (dLat != null && dLng != null) {
+          if (_driverRoute != null) {
+            driverPos = snapToRoute(lat: dLat, lng: dLng, route: _driverRoute!);
+            routeSegments = buildRouteSegments(
+              route: _driverRoute!,
+              speedKmh: driverSpeed,
+            );
+          } else {
+            driverPos = [dLat, dLng];
+          }
+        }
+      }
+    }
+
+    // Outside an active ride, keep the preview route colored but neutral.
+    if (routeSegments.isEmpty && _currentRoute != null) {
+      routeSegments = buildRouteSegments(route: _currentRoute!, speedKmh: null);
+    }
 
     return Scaffold(
       body: Stack(
         children: [
           // ── Map ────────────────────────────────────────────────────
-          DynamicMapView(
-            latitude: _lat, 
-            longitude: _lng,
+                      DynamicMapView(
+            latitude: driverPos?[0] ?? _lat,
+            longitude: driverPos?[1] ?? _lng,
             routeCoordinates: _currentRoute,
+            routeSegments: routeSegments,
             pins: [
               MapPin(
                 latitude: _lat,
@@ -784,7 +830,15 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
                       ? 'Destination'
                       : _destinationController.text.trim(),
                 ),
-              if (ride != null) ..._ridePins(ride),
+              if (driverPos != null)
+                MapPin(
+                  latitude: driverPos![0],
+                  longitude: driverPos![1],
+                  color: AppColors.success,
+                  label: 'Driver',
+                  isVehicle: true,
+                  radius: 13.0,
+                ),
             ],
           ),
 

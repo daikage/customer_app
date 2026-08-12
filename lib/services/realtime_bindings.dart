@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/auth_provider.dart';
+import '../providers/map_provider.dart';
 import '../providers/ride_provider.dart';
 import 'reverb_service.dart';
 
@@ -138,7 +139,7 @@ class _RealtimeBindingsState extends ConsumerState<RealtimeBindings> {
     }
   }
 
-  void _applyDriverLocation(Map<String, dynamic> data) {
+         void _applyDriverLocation(Map<String, dynamic> data) {
     final currentRide = ref.read(rideProvider).ride;
     if (currentRide == null) return;
 
@@ -146,16 +147,23 @@ class _RealtimeBindingsState extends ConsumerState<RealtimeBindings> {
     final lat = data['lat'];
     final lng = data['lng'];
     if (rideId != currentRide['id'] || lat == null || lng == null) return;
+    final dLat = (lat as num).toDouble();
+    final dLng = (lng as num).toDouble();
 
     final driver = (currentRide['driver'] as Map?)?.cast<String, dynamic>() ??
         <String, dynamic>{};
-    driver['last_lat'] = lat;
-    driver['last_lng'] = lng;
-    if (data['heading'] != null) driver['heading'] = data['heading'];
+    driver['last_lat'] = dLat;
+    driver['last_lng'] = dLng;
+    final heading = data['heading'];
+    if (heading != null) driver['heading'] = heading;
 
     ref.read(rideProvider.notifier).updateRideLocally({
       ...currentRide,
       'driver': driver,
     });
+
+    // Feed the live position into the shared speed tracker so the colored
+    // route segments and the moving vehicle marker stay in sync.
+    ref.read(mapSpeedProvider.notifier).trackPoint(dLat, dLng);
   }
 }
