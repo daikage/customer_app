@@ -1,4 +1,68 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
+
+/// A colored chunk of the route used to render a live, traffic-aware line.
+class RouteSegment {
+  final List<List<double>> points;
+  final Color color;
+
+  const RouteSegment(this.points, this.color);
+}
+
+/// Map a live speed (km/h) to a traffic-style color: green (fast), amber
+/// (moderate), red (slow). Returns a neutral color when speed is unknown.
+Color speedToColor(double? speedKmh) {
+  final s = speedKmh;
+  if (s == null) return const Color(0xFF0D7377); // neutral / default
+  if (s >= 25) return const Color(0xFF2ECC71); // green — flowing
+  if (s >= 10) return const Color(0xFFF5A623); // amber — slowing
+  return const Color(0xFFE74C3C); // red — congested
+}
+
+/// Splits a full route into contiguous [segmentCount] colored chunks that
+/// form a live gradient: the leading chunks take the current speed color and
+/// it fades toward a neutral tail color further ahead.
+List<RouteSegment> buildRouteSegments({
+  required List<List<double>> route,
+  double? speedKmh,
+  int segmentCount = 6,
+}) {
+  if (route.length < 2 || segmentCount <= 1) return const [];
+
+  final status = speedToColor(speedKmh);
+  const tail = Color(0xFF607D8B);
+  final len = route.length;
+  final perChunk = (len - 1) / segmentCount;
+  final segments = <RouteSegment>[];
+
+  for (var k = 0; k < segmentCount; k++) {
+    final a = ((k * perChunk).round()).clamp(0, len - 2).toInt();
+    final b = (((k + 1) * perChunk + 1).round()).clamp(a + 1, len).toInt();
+    final color = Color.lerp(status, tail, k / (segmentCount - 1))!;
+    segments.add(RouteSegment(route.sublist(a, b), color));
+  }
+  return segments;
+}
+
+/// Snaps a raw GPS position to the nearest vertex on a route so the vehicle
+/// marker appears to travel along the line.
+List<double> snapToRoute({
+  required double lat,
+  required double lng,
+  required List<List<double>> route,
+}) {
+  if (route.isEmpty) return [lat, lng];
+  var best = route.first;
+  var bestSq = double.infinity;
+  for (final p in route) {
+    final dSq = (p[0] - lat) * (p[0] - lat) + (p[1] - lng) * (p[1] - lng);
+    if (dSq < bestSq) {
+      bestSq = dSq;
+      best = p;
+    }
+  }
+  return best;
+}
 
 class RouteInfo {
   final List<List<double>> coordinates;
