@@ -157,6 +157,17 @@ class RideNotifier extends StateNotifier<RideState> {
     }
   }
 
+  /// Fire-and-forget customer location update for an active ride so the
+  /// assigned driver can see the customer on the map.
+  Future<void> updateCustomerLocation(int rideId, double lat, double lng) async {
+    try {
+      await ApiService.instance
+          .dio.post('/rides/$rideId/customer-location', data: {'lat': lat, 'lng': lng});
+    } on Exception {
+      // Location updates are best-effort; ignore transient failures.
+    }
+  }
+
   Future<void> fetchActive() async {
     try {
       final response = await ApiService.instance.dio.get('/rides/active');

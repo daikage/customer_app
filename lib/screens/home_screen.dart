@@ -111,13 +111,50 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
     _pollTimer?.cancel();
     _pollTimer = Timer.periodic(
       const Duration(seconds: 5),
-      (_) => ref.read(rideProvider.notifier).fetchActive(),
+      (_) {
+        final notifier = ref.read(rideProvider.notifier);
+        notifier.fetchActive();
+
+        // Share the customer's live position while a ride is active so the
+        // assigned driver can see them moving on the map.
+        final ride = ref.read(rideProvider).ride;
+        if (ride != null) {
+          final status = ride['status'] as String?;
+          if (status != null &&
+              status != 'pending' &&
+              status != 'completed' &&
+              status != 'cancelled') {
+            notifier.updateCustomerLocation(ride['id'] as int, _lat, _lng);
+          }
+        }
+      },
     );
   }
 
   void _stopPolling() {
     _pollTimer?.cancel();
     _pollTimer = null;
+  }
+
+  /// Position pins for the assigned driver's live location (fed by the 5s poll
+  /// and realtime DriverLocationUpdated events).
+  List<MapPin> _ridePins(Map<String, dynamic> ride) {
+    final driver = ride['driver'];
+    if (driver is Map) {
+      final lat = double.tryParse(driver['last_lat']?.toString() ?? '');
+      final lng = double.tryParse(driver['last_lng']?.toString() ?? '');
+      if (lat != null && lng != null) {
+        return [
+          MapPin(
+            latitude: lat,
+            longitude: lng,
+            color: AppColors.success,
+            label: 'Driver',
+          ),
+        ];
+      }
+    }
+    return const [];
   }
 
   Map<String, dynamic>? _buildServiceMeta(String serviceType) {
@@ -731,6 +768,24 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
             latitude: _lat, 
             longitude: _lng,
             routeCoordinates: _currentRoute,
+            pins: [
+              MapPin(
+                latitude: _lat,
+                longitude: _lng,
+                color: AppColors.info,
+                label: 'You',
+              ),
+              if (_dropoffLat != null && _dropoffLng != null)
+                MapPin(
+                  latitude: _dropoffLat!,
+                  longitude: _dropoffLng!,
+                  color: AppColors.accent,
+                  label: _destinationController.text.trim().isEmpty
+                      ? 'Destination'
+                      : _destinationController.text.trim(),
+                ),
+              if (ride != null) ..._ridePins(ride),
+            ],
           ),
 
           // ── Top gradient overlay ──────────────────────────────────
