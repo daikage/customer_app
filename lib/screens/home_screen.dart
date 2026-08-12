@@ -16,6 +16,7 @@ import 'settings_screen.dart';
 import 'chat_screen.dart';
 import 'address_search_screen.dart';
 import 'wallet_screen.dart';
+import 'history_screen.dart';
 import '../services/route_service.dart';
 import '../providers/map_provider.dart';
 import '../providers/wallet_provider.dart';
@@ -910,7 +911,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
                     icon: Icons.history_rounded,
                     onPressed: () => Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const HistoryScreen()),
+                      MaterialPageRoute(builder: (_) => HistoryScreen()),
                     ),
                   ).animate().scale(delay: 200.ms),
                   const SizedBox(height: 10),
