@@ -51,26 +51,93 @@ class DynamicMapView extends ConsumerStatefulWidget {
   ConsumerState<DynamicMapView> createState() => _DynamicMapViewState();
 }
 
-class _DynamicMapViewState extends ConsumerState<DynamicMapView> {
+class _DynamicMapViewState extends ConsumerState<DynamicMapView> with SingleTickerProviderStateMixin {
   ml.MapLibreMapController? _mlController;
   String _lastMapLibreSignature = '';
+  
+  late AnimationController _animController;
+  List<MapPin> _oldPins = [];
+  List<MapPin> _currentPins = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _oldPins = widget.pins;
+    _currentPins = widget.pins;
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    );
+    _animController.addListener(() {
+      setState(() {
+        _updateCurrentPins();
+      });
+      if (_mlController != null) {
+        _drawMapLibre(_mlController!);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _animController.dispose();
+    super.dispose();
+  }
+
+  void _updateCurrentPins() {
+    final t = Curves.easeInOut.transform(_animController.value);
+    _currentPins = [];
+    for (int i = 0; i < widget.pins.length; i++) {
+      final target = widget.pins[i];
+      if (i < _oldPins.length) {
+        final old = _oldPins[i];
+        // If color/label changed abruptly, we just interpolate lat/lng
+        final lat = old.latitude + (target.latitude - old.latitude) * t;
+        final lng = old.longitude + (target.longitude - old.longitude) * t;
+        _currentPins.add(MapPin(
+          latitude: lat,
+          longitude: lng,
+          color: target.color,
+          label: target.label,
+          radius: target.radius,
+          isVehicle: target.isVehicle,
+        ));
+      } else {
+        _currentPins.add(target);
+      }
+    }
+  }
 
   @override
   void didUpdateWidget(DynamicMapView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // MapLibre is imperative, so redraw the shapes when pins/route change.
-    final controller = _mlController;
-    if (controller == null) return;
+    
+    bool pinsChanged = false;
+    if (oldWidget.pins.length != widget.pins.length) {
+      pinsChanged = true;
+    } else {
+      for (int i = 0; i < widget.pins.length; i++) {
+        if (oldWidget.pins[i].latitude != widget.pins[i].latitude ||
+            oldWidget.pins[i].longitude != widget.pins[i].longitude) {
+          pinsChanged = true;
+          break;
+        }
+      }
+    }
 
-    final signature = _mapLibreSignature();
-    if (signature != _lastMapLibreSignature) {
-      _lastMapLibreSignature = signature;
-      _drawMapLibre(controller);
+    if (pinsChanged) {
+      _oldPins = _currentPins.isEmpty ? oldWidget.pins : _currentPins;
+      _animController.forward(from: 0.0);
+    } else if (oldWidget.routeCoordinates != widget.routeCoordinates || oldWidget.routeSegments != widget.routeSegments) {
+      // Re-draw maplibre if routes changed
+      if (_mlController != null) {
+        _drawMapLibre(_mlController!);
+      }
     }
   }
 
   String _mapLibreSignature() {
-    final pins = widget.pins.map((p) => p.signature).join('|');
+    final pins = _currentPins.map((p) => p.signature).join('|');
     final route = (widget.routeCoordinates ?? const []).map((c) => '${c[0]},${c[1]}').join('|');
     final segs = widget.routeSegments
         .map((s) => '${s.color.toARGB32()}:${s.points.map((c) => '${c[0]},${c[1]}').join('|')}')
@@ -80,10 +147,14 @@ class _DynamicMapViewState extends ConsumerState<DynamicMapView> {
 
   Future<void> _drawMapLibre(ml.MapLibreMapController controller) async {
     try {
+      final signature = _mapLibreSignature();
+      if (signature == _lastMapLibreSignature) return;
+      _lastMapLibreSignature = signature;
+
       await controller.clearCircles();
       await controller.clearLines();
 
-      for (final pin in widget.pins) {
+      for (final pin in _currentPins) {
         await controller.addCircle(ml.CircleOptions(
           geometry: ml.LatLng(pin.latitude, pin.longitude),
           circleRadius: pin.radius,
@@ -160,8 +231,9 @@ class _DynamicMapViewState extends ConsumerState<DynamicMapView> {
 
   Set<gm.Marker> _buildGoogleMarkers() {
     final markers = <gm.Marker>{...widget.googleMarkers};
-    for (var i = 0; i < widget.pins.length; i++) {
-      final pin = widget.pins[i];
+    final pinsToDraw = _animController.isAnimating ? _currentPins : widget.pins;
+    for (var i = 0; i < pinsToDraw.length; i++) {
+      final pin = pinsToDraw[i];
       markers.add(gm.Marker(
         markerId: gm.MarkerId('pin_${i}_${_hexFromColor(pin.color)}'),
         position: gm.LatLng(pin.latitude, pin.longitude),
@@ -200,7 +272,6 @@ class _DynamicMapViewState extends ConsumerState<DynamicMapView> {
       myLocationRenderMode: ml.MyLocationRenderMode.normal,
       onMapCreated: (controller) {
         _mlController = controller;
-        _lastMapLibreSignature = _mapLibreSignature();
         _drawMapLibre(controller);
       },
     );

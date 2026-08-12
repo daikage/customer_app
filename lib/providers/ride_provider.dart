@@ -72,6 +72,7 @@ class RideNotifier extends StateNotifier<RideState> {
     int? categoryId,
     String serviceType = 'single',
     Map<String, dynamic>? serviceMeta,
+    String paymentMethod = 'cash',
   }) async {
     state = state.copyWith(loading: true, clearError: true);
     try {
@@ -84,6 +85,7 @@ class RideNotifier extends StateNotifier<RideState> {
         'dropoff_address': dropoffAddress,
         'distance_km': distanceKm,
         'service_type': serviceType,
+        'payment_method': paymentMethod,
         if (categoryId != null) 'ride_category_id': categoryId,
         if (serviceMeta != null) 'service_meta': serviceMeta,
       });

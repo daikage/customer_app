@@ -14,11 +14,11 @@ import '../utils/geo.dart';
 import '../widgets/dynamic_map_view.dart';
 import 'settings_screen.dart';
 import 'chat_screen.dart';
-import 'history_screen.dart';
 import 'address_search_screen.dart';
 import 'wallet_screen.dart';
 import '../services/route_service.dart';
 import '../providers/map_provider.dart';
+import '../providers/wallet_provider.dart';
 
 class CustomerHomeScreen extends ConsumerStatefulWidget {
   const CustomerHomeScreen({super.key});
@@ -52,6 +52,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
   List<List<double>>? _currentRoute;
   List<List<double>>? _driverRoute;
   String? _driverEta;
+  String _paymentMethod = 'cash';
 
   late AnimationController _fabAnimController;
 
@@ -66,6 +67,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
     Future.microtask(() {
       ref.read(rideProvider.notifier).fetchActive();
       ref.read(rideProvider.notifier).fetchCategories(serviceType: 'single');
+      ref.read(walletProvider.notifier).fetchWalletAndTransactions();
     });
     _fabAnimController.forward();
   }
@@ -136,27 +138,6 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
   void _stopPolling() {
     _pollTimer?.cancel();
     _pollTimer = null;
-  }
-
-  /// Position pins for the assigned driver's live location (fed by the 5s poll
-  /// and realtime DriverLocationUpdated events).
-  List<MapPin> _ridePins(Map<String, dynamic> ride) {
-    final driver = ride['driver'];
-    if (driver is Map) {
-      final lat = double.tryParse(driver['last_lat']?.toString() ?? '');
-      final lng = double.tryParse(driver['last_lng']?.toString() ?? '');
-      if (lat != null && lng != null) {
-        return [
-          MapPin(
-            latitude: lat,
-            longitude: lng,
-            color: AppColors.success,
-            label: 'Driver',
-          ),
-        ];
-      }
-    }
-    return const [];
   }
 
   Map<String, dynamic>? _buildServiceMeta(String serviceType) {
@@ -379,6 +360,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
         categoryId: categoryId,
         serviceType: serviceType,
         serviceMeta: _buildServiceMeta(serviceType),
+        paymentMethod: _paymentMethod,
       );
       if (mounted) {
         _startPolling();
@@ -711,9 +693,13 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
     ref.listen<RideState>(rideProvider, (previous, next) {
       final prevStatus = previous?.ride?['status'];
       final nextStatus = next.ride?['status'];
-      if (prevStatus != 'completed' && nextStatus == 'completed') {
-        final rideId = next.ride!['id'];
-        _showRatingDialog(rideId);
+      
+      // If the ride was active and transitions to completed OR becomes null (due to active ride endpoint no longer returning it)
+      if (prevStatus != null && ['accepted', 'arrived', 'started'].contains(prevStatus)) {
+        if (nextStatus == 'completed' || next.ride == null) {
+          final rideId = previous!.ride!['id'] as int;
+          _showRatingDialog(rideId);
+        }
       }
 
       // Update ETA if driver location or status changes
@@ -814,8 +800,8 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
                 ),
               if (driverPos != null)
                 MapPin(
-                  latitude: driverPos![0],
-                  longitude: driverPos![1],
+                  latitude: driverPos[0],
+                  longitude: driverPos[1],
                   color: AppColors.success,
                   label: 'Driver',
                   isVehicle: true,
@@ -1041,6 +1027,26 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
                               color: Colors.grey.shade500,
                             ),
                           ),
+                          if (_driverEta != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.access_time_rounded,
+                                      size: 16, color: AppColors.primary),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    _driverEta!,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: AppColors.primary,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -1056,7 +1062,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
             right: 0,
             child: GlassmorphicContainer(
               width: MediaQuery.of(context).size.width,
-              height: isActive ? 200 : 350,
+              height: isActive ? 200 : 420,
               borderRadius: 28,
               blur: 20,
               alignment: Alignment.bottomCenter,
@@ -1112,7 +1118,35 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
                     // ── Service-specific fields ─────────────────────────
                     if (!isActive) _buildServiceFields(selectedType),
 
-                    const SizedBox(height: 16),
+                    if (!isActive) ...[
+                      const SizedBox(height: 12),
+                      SegmentedButton<String>(
+                        segments: [
+                          const ButtonSegment(value: 'cash', label: Text('Cash'), icon: Icon(Icons.money)),
+                          ButtonSegment(
+                            value: 'wallet', 
+                            label: Text(
+                              ref.watch(walletProvider).wallet != null 
+                                ? 'Wallet (₦${ref.watch(walletProvider).wallet!['balance']})' 
+                                : 'Wallet'
+                            ), 
+                            icon: const Icon(Icons.account_balance_wallet)
+                          ),
+                        ],
+                        selected: {_paymentMethod},
+                        onSelectionChanged: (Set<String> newSelection) {
+                          setState(() {
+                            _paymentMethod = newSelection.first;
+                          });
+                        },
+                        style: SegmentedButton.styleFrom(
+                          selectedForegroundColor: Colors.white,
+                          selectedBackgroundColor: AppColors.primary,
+                        ),
+                      ),
+                    ],
+
+                    const SizedBox(height: 12),
 
                     // ── Book button ──────────────────────────────────────
                     SizedBox(

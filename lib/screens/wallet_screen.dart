@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../providers/wallet_provider.dart';
 import '../utils/app_theme.dart';
 
@@ -18,6 +19,118 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     super.initState();
     Future.microtask(
         () => ref.read(walletProvider.notifier).fetchWalletAndTransactions());
+  }
+
+  void _showTopUpDialog() {
+    final amountController = TextEditingController();
+    String selectedGateway = 'paystack';
+    bool isLoading = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return StatefulBuilder(builder: (context, setState) {
+          return Container(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+              left: 24,
+              right: 24,
+              top: 24,
+            ),
+            decoration: BoxDecoration(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'Top up Wallet',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 20),
+                TextField(
+                  controller: amountController,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: 'Amount (₦)',
+                    prefixIcon: const Icon(Icons.money),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                DropdownButtonFormField<String>(
+                  value: selectedGateway,
+                  decoration: InputDecoration(
+                    labelText: 'Payment Gateway',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'paystack', child: Text('Paystack')),
+                    DropdownMenuItem(value: 'flutterwave', child: Text('Flutterwave')),
+                  ],
+                  onChanged: (val) {
+                    if (val != null) setState(() => selectedGateway = val);
+                  },
+                ),
+                const SizedBox(height: 32),
+                SizedBox(
+                  height: 56,
+                  child: FilledButton(
+                    onPressed: isLoading
+                        ? null
+                        : () async {
+                            final amount = double.tryParse(amountController.text);
+                            if (amount == null || amount < 100) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Enter a valid amount (Min 100)')),
+                              );
+                              return;
+                            }
+                            setState(() => isLoading = true);
+                            try {
+                              final url = await ref
+                                  .read(walletProvider.notifier)
+                                  .topupWallet(amount, selectedGateway);
+                              Navigator.pop(context); // Close bottom sheet
+                              
+                              if (!await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication)) {
+                                throw Exception('Could not launch payment gateway');
+                              }
+                            } catch (e) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(e.toString())),
+                              );
+                              setState(() => isLoading = false);
+                            }
+                          },
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: isLoading
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : const Text('Proceed to Pay', style: TextStyle(fontSize: 16)),
+                  ),
+                ),
+              ],
+            ),
+          );
+        });
+      },
+    ).then((_) {
+      // Refresh wallet balance when coming back
+      ref.read(walletProvider.notifier).fetchWalletAndTransactions();
+    });
   }
 
   @override
@@ -136,6 +249,25 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                                     ),
                                   ),
                                 ],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            SizedBox(
+                              width: double.infinity,
+                              child: FilledButton.icon(
+                                onPressed: _showTopUpDialog,
+                                icon: const Icon(Icons.add, color: AppColors.primary),
+                                label: const Text(
+                                  'Top Up Wallet',
+                                  style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600),
+                                ),
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                ),
                               ),
                             ),
                           ],

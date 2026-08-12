@@ -58,6 +58,21 @@ class WalletNotifier extends StateNotifier<WalletState> {
       );
     }
   }
+
+  Future<String> topupWallet(double amount, String gateway) async {
+    try {
+      final res = await ApiService.instance.dio.post(
+        '/payment/topup',
+        data: {
+          'amount': amount,
+          'gateway': gateway,
+        },
+      );
+      return res.data['authorization_url'] as String;
+    } on Exception catch (e) {
+      throw Exception(ApiService.friendlyError(e));
+    }
+  }
 }
 
 final walletProvider =
